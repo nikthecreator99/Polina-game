@@ -20,8 +20,8 @@ export const AGES = {
 // top/shoes — цвета для запасной нарисованной кодом Полины.
 export const OUTFITS = {
   sundress: { name: 'Летний сарафан', price: 0, top: '#f2c14e', shoes: '#c0392b', note: 'В нём она бегала по Зелёному' },
-  pajamas: { name: 'Пижамка', price: 15, top: '#f4f1ea', shoes: '#ffffff', note: 'Жёлтые штанишки с игрушками' },
-  blue: { name: 'Голубое платье', price: 25, top: '#b9cdf0', shoes: '#c0392b', note: 'Атласное, на день рождения' },
-  yolochka: { name: 'Новогодняя ёлочка', price: 40, top: '#f7f2ea', shoes: '#f3eee6', note: 'Костюм с утренника' },
+  pajamas: { name: 'Пижамка', price: 50, top: '#f4f1ea', shoes: '#ffffff', note: 'Жёлтые штанишки с игрушками' },
+  blue: { name: 'Голубое платье', price: 100, top: '#b9cdf0', shoes: '#c0392b', note: 'Атласное, на день рождения' },
+  yolochka: { name: 'Новогодняя ёлочка', price: 150, top: '#f7f2ea', shoes: '#f3eee6', note: 'Костюм с утренника' },
 };
 export const DEFAULT_OUTFIT = 'sundress';
