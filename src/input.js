@@ -1,5 +1,9 @@
-// Ввод: мультитач на iPad + клавиатура для отладки на компьютере.
-// Состояние читается игрой каждый кадр; "pressed" — флаги нажатия, сбрасываются после кадра.
+// Ввод: мультитач на iPad + мышь и клавиатура для проверки на компьютере.
+//
+// Тач обрабатывается «без памяти»: при каждом событии касания заново смотрим на
+// все пальцы, которые сейчас лежат на экране (e.touches), и по их положению решаем,
+// какие кнопки нажаты. Так кнопка не может «залипнуть», даже если iPad потерял
+// какое-то событие отпускания пальца.
 
 export const input = {
   left: false,
@@ -12,29 +16,24 @@ export const input = {
     this.throwPressed = false;
   },
   reset() {
-    padPointers.clear();
-    jumpPointers.clear();
+    touchState = { left: false, right: false, jump: false };
+    mouse = { left: false, right: false, jump: false };
     keys.clear();
-    this.left = this.right = this.jump = false;
     this.endFrame();
     refresh();
   },
 };
 
-const padPointers = new Map(); // pointerId -> -1 | 1
-const jumpPointers = new Set();
 const keys = new Set();
-
-let padEl, leftArrow, rightArrow, jumpBtn, throwBtn;
+let touchState = { left: false, right: false, jump: false };
+let mouse = { left: false, right: false, jump: false };
+let controlsEl, padEl, leftArrow, rightArrow, jumpBtn, throwBtn;
 
 function refresh() {
-  let l = false, r = false;
-  for (const dir of padPointers.values()) {
-    if (dir < 0) l = true; else r = true;
-  }
-  input.left = l || keys.has('ArrowLeft') || keys.has('KeyA');
-  input.right = r || keys.has('ArrowRight') || keys.has('KeyD');
-  input.jump = jumpPointers.size > 0 || keys.has('Space') || keys.has('ArrowUp') || keys.has('KeyW');
+  input.left = touchState.left || mouse.left || keys.has('ArrowLeft') || keys.has('KeyA');
+  input.right = touchState.right || mouse.right || keys.has('ArrowRight') || keys.has('KeyD');
+  // Если зажаты обе стороны (палец ровно посередине), никуда не бежим.
+  input.jump = touchState.jump || mouse.jump || keys.has('Space') || keys.has('ArrowUp') || keys.has('KeyW');
   if (leftArrow) {
     leftArrow.classList.toggle('on', input.left);
     rightArrow.classList.toggle('on', input.right);
@@ -42,53 +41,80 @@ function refresh() {
   }
 }
 
-function padDir(e) {
-  const rect = padEl.getBoundingClientRect();
-  return e.clientX < rect.left + rect.width / 2 ? -1 : 1;
+const controlsActive = () => controlsEl && !controlsEl.classList.contains('hidden');
+
+function inRect(x, y, r, pad) {
+  return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+}
+
+// Что делает палец в точке (x, y).
+function zoneAt(x, y) {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const tr = throwBtn.getBoundingClientRect();
+  const jr = jumpBtn.getBoundingClientRect();
+  const pr = padEl.getBoundingClientRect();
+  if (inRect(x, y, tr, 14)) return 'throw';
+  if (inRect(x, y, jr, 24)) return 'jump';
+  // Вся нижняя левая область работает как крестовина, а не только сама кнопка:
+  // так палец не «теряется», если чуть съехал.
+  if (inRect(x, y, pr, 40) || (x < W * 0.42 && y > H * 0.45)) {
+    return x < pr.left + pr.width / 2 ? 'left' : 'right';
+  }
+  // Правая нижняя часть экрана вне кнопки броска — тоже прыжок.
+  if (x > W * 0.6 && y > H * 0.45) return 'jump';
+  return null;
+}
+
+function onTouch(e) {
+  if (!controlsActive()) return;
+  const next = { left: false, right: false, jump: false };
+  for (const t of e.touches) {
+    const z = zoneAt(t.clientX, t.clientY);
+    if (z === 'left' || z === 'right' || z === 'jump') next[z] = true;
+  }
+  if (e.type === 'touchstart') {
+    for (const t of e.changedTouches) {
+      const z = zoneAt(t.clientX, t.clientY);
+      if (z === 'throw') {
+        input.throwPressed = true;
+        throwBtn.classList.add('on');
+        setTimeout(() => throwBtn.classList.remove('on'), 120);
+      }
+      if (z === 'jump' && !touchState.jump) input.jumpPressed = true;
+    }
+  }
+  touchState = next;
+  refresh();
+  // Касания по кнопке паузы пропускаем, остальное не должно скроллить/зумить страницу.
+  if (!(e.target && e.target.closest && e.target.closest('#btn-pause'))) e.preventDefault();
+}
+
+// Мышь — только для проверки на компьютере.
+function onMouse(e) {
+  if (!controlsActive() || e.pointerType !== 'mouse') return;
+  const down = e.type === 'pointerdown' || (e.type === 'pointermove' && e.buttons & 1);
+  const z = down ? zoneAt(e.clientX, e.clientY) : null;
+  if (e.type === 'pointerdown' && z === 'throw') input.throwPressed = true;
+  if (e.type === 'pointerdown' && z === 'jump' && !mouse.jump) input.jumpPressed = true;
+  mouse = { left: z === 'left', right: z === 'right', jump: z === 'jump' };
+  refresh();
 }
 
 export function initInput() {
+  controlsEl = document.getElementById('controls');
   padEl = document.getElementById('pad');
   leftArrow = padEl.querySelector('.left');
   rightArrow = padEl.querySelector('.right');
   jumpBtn = document.getElementById('btn-jump');
   throwBtn = document.getElementById('btn-throw');
 
-  // Крестовина: палец можно двигать влево-вправо, не отрывая.
-  padEl.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    padEl.setPointerCapture(e.pointerId);
-    padPointers.set(e.pointerId, padDir(e));
-    refresh();
-  });
-  padEl.addEventListener('pointermove', (e) => {
-    if (!padPointers.has(e.pointerId)) return;
-    padPointers.set(e.pointerId, padDir(e));
-    refresh();
-  });
-  const padUp = (e) => { padPointers.delete(e.pointerId); refresh(); };
-  padEl.addEventListener('pointerup', padUp);
-  padEl.addEventListener('pointercancel', padUp);
-  padEl.addEventListener('lostpointercapture', padUp);
-
-  jumpBtn.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    jumpBtn.setPointerCapture(e.pointerId);
-    if (jumpPointers.size === 0) input.jumpPressed = true;
-    jumpPointers.add(e.pointerId);
-    refresh();
-  });
-  const jumpUp = (e) => { jumpPointers.delete(e.pointerId); refresh(); };
-  jumpBtn.addEventListener('pointerup', jumpUp);
-  jumpBtn.addEventListener('pointercancel', jumpUp);
-  jumpBtn.addEventListener('lostpointercapture', jumpUp);
-
-  throwBtn.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    input.throwPressed = true;
-    throwBtn.classList.add('on');
-    setTimeout(() => throwBtn.classList.remove('on'), 120);
-  });
+  for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) {
+    window.addEventListener(type, onTouch, { passive: false });
+  }
+  for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) {
+    window.addEventListener(type, onMouse);
+  }
 
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
@@ -99,6 +125,7 @@ export function initInput() {
   });
   window.addEventListener('keyup', (e) => { keys.delete(e.code); refresh(); });
   window.addEventListener('blur', () => input.reset());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) input.reset(); });
 
   // iOS: не даём масштабировать жестами и не показываем меню долгого нажатия.
   document.addEventListener('gesturestart', (e) => e.preventDefault());

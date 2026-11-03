@@ -289,7 +289,7 @@ function birch(g, x, base, h, seed) {
 }
 
 function villageLayer() {
-  return buildLayer('village', 240, H + 160, 1, 0.6, (g) => {
+  return buildLayer('village', 110, H + 160, 1, 0.6, (g) => {
     const base = 400;
     // луг под деревней
     hills(g, base + 6, 6, 7, '#9fd27f');
@@ -317,12 +317,12 @@ function villageLayer() {
     }
     g.fillStyle = '#9b7756';
     g.fillRect(0, base - 10, LW, 3);
-    haze(g, 240, H, 0.12);
+    haze(g, 110, H, 0.12);
   });
 }
 
 function meadowLayer() {
-  return buildLayer('meadow', 400, H + 160, 1, 0, (g) => {
+  return buildLayer('meadow', 360, H + 160, 1, 0, (g) => {
     const base = 432;
     const mg = g.createLinearGradient(0, base - 10, 0, H);
     mg.addColorStop(0, '#8fd068');
