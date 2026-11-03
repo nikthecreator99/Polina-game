@@ -744,7 +744,7 @@ function preparePolina(img, rig) {
     const top = new Uint8ClampedArray(d);
     const legs = new Uint8ClampedArray(d);
     const cutY = Math.floor(h * rig.cut);
-    const y0 = Math.floor(h * (rig.cut - 0.03));
+    const y0 = Math.floor(h * (rig.cut - (rig.overlap ?? 0.03)));
     // Цвет одежды чуть выше разреза: им отличаем подол от ног.
     let cr = 0, cg = 0, cb = 0;
     if (rig.split) {
@@ -849,6 +849,30 @@ function preparePolina(img, rig) {
   return res;
 }
 
+// Где на картинке руки локоть: на доле elbow длины от плечевого шарнира до кончиков пальцев,
+// по высоте — посередине руки в этом месте.
+const armCache = new Map();
+function prepareArm(img, a) {
+  if (armCache.has(img)) return armCache.get(img);
+  let res = null;
+  try {
+    const w = img.width, h = img.height;
+    const c = mkCanvas(w, h).getContext('2d');
+    c.drawImage(img, 0, 0);
+    const d = c.getImageData(0, 0, w, h).data;
+    let tip = w - 1;
+    const opaque = (x) => { for (let y = 0; y < h; y++) if (d[(y * w + x) * 4 + 3] > 128) return true; return false; };
+    while (tip > 0 && !opaque(tip)) tip--;
+    const px = a.pivotX * w;
+    const ex = Math.round(px + (tip - px) * (a.elbow || 0.42));
+    let sum = 0, n = 0;
+    for (let y = 0; y < h; y++) if (d[(y * w + ex) * 4 + 3] > 128) { sum += y; n++; }
+    res = { elbowX: ex, elbowY: n ? sum / n : a.pivotY * h };
+  } catch (e) { /* без пикселей рука рисуется прямой */ }
+  armCache.set(img, res);
+  return res;
+}
+
 function drawPolinaSprite(ctx, img, rig, P, o, arm) {
   const { x, y, h, facing, running, airborne, anim, throwing, throwT = 0, vy = 0, land = 0 } = o;
   const H = h * 1.4;
@@ -898,7 +922,7 @@ function drawPolinaSprite(ctx, img, rig, P, o, arm) {
     }
     return -lowest;
   };
-  const drop = airborne ? 0 : Math.min(footLift(P.front, fh, fk), footLift(P.back, bh, bk));
+  const drop = airborne || rig.shuffle ? 0 : Math.min(footLift(P.front, fh, fk), footLift(P.back, bh, bk));
   const bob = running ? Math.abs(Math.cos(anim)) * 2.2 : 0;
 
   ctx.save();
@@ -909,27 +933,51 @@ function drawPolinaSprite(ctx, img, rig, P, o, arm) {
   const pivX = ox + P.hipX * W;
 
   // ---- руки: угол 0 — вытянута вперёд, PI/2 — висит вниз
-  let armFront = Math.PI / 2 - 0.08;
-  let armBack = Math.PI / 2 + 0.08;
-  if (running) { armFront -= swing * 0.75; armBack += swing * 0.75; }
+  // Плечо: угол 0 — рука вытянута вперёд, PI/2 — висит вниз.
+  // Локоть: 0 — рука прямая, минус — предплечье сгибается вперёд/вверх.
+  let armFront = Math.PI / 2 - 0.08, elbowFront = -0.15;
+  let armBack = Math.PI / 2 + 0.08, elbowBack = -0.15;
+  if (running) {
+    // как у бегущего: локти согнуты почти под прямым углом, руки ходят от плеча
+    armFront = Math.PI / 2 + 0.15 - swing * 0.7; elbowFront = -1.45 - Math.max(0, swing) * 0.35;
+    armBack = Math.PI / 2 + 0.15 + swing * 0.7; elbowBack = -1.45 - Math.max(0, -swing) * 0.35;
+  }
   if (airborne) {
     const fall = clamp01((vy + 150) / 550);
-    armFront = lerp(0.35, 0.9, fall); armBack = lerp(2.4, 1.9, fall);
+    armFront = lerp(0.6, 1.0, fall); elbowFront = lerp(-0.9, -0.5, fall);
+    armBack = lerp(2.3, 1.9, fall); elbowBack = lerp(-0.8, -0.4, fall);
   }
-  if (land > 0) { armFront = lerp(armFront, 0.9, land); armBack = lerp(armBack, 1.2, land); }
+  if (land > 0) {
+    armFront = lerp(armFront, 1.0, land); elbowFront = lerp(elbowFront, -0.7, land);
+    armBack = lerp(armBack, 1.3, land); elbowBack = lerp(elbowBack, -0.7, land);
+  }
   if (throwing) {
     const e = 1 - (1 - clamp01(throwT)) ** 2;
     armFront = lerp(Math.PI + 0.7, 0.15, e); // замах из-за головы и бросок вперёд
+    elbowFront = lerp(-1.3, 0, Math.min(1, e * 1.4)); // в замахе согнута, к броску выпрямляется
   }
-  const drawArm = (angle, src) => {
+  const AG = arm && prepareArm(arm.img, arm.rig);
+  const drawArm = (angle, elbow, src) => {
     if (!arm) return;
     const a = arm.rig;
+    const pw = a.pivotX * src.width, ph = a.pivotY * src.height;
     ctx.save();
     ctx.translate(pivX, hipY);
     ctx.rotate(lean);
     ctx.translate(ox + a.shoulderX * W - pivX, oy + a.shoulderY * H - hipY);
     ctx.rotate(angle);
-    ctx.drawImage(src, -a.pivotX * src.width * s, -a.pivotY * src.height * s, src.width * s, src.height * s);
+    if (!AG) {
+      ctx.drawImage(src, -pw * s, -ph * s, src.width * s, src.height * s);
+    } else {
+      // плечо (до локтя с небольшим нахлёстом), потом предплечье с кистью вокруг локтя
+      const ov = src.width * 0.025;
+      const ex = AG.elbowX, ey = AG.elbowY;
+      ctx.drawImage(src, 0, 0, ex + ov, src.height, -pw * s, -ph * s, (ex + ov) * s, src.height * s);
+      ctx.translate((ex - pw) * s, (ey - ph) * s);
+      ctx.rotate(elbow);
+      ctx.translate(-(ex - pw) * s, -(ey - ph) * s);
+      ctx.drawImage(src, ex - ov, 0, src.width - ex + ov, src.height, (ex - ov - pw) * s, -ph * s, (src.width - ex + ov) * s, src.height * s);
+    }
     ctx.restore();
   };
 
@@ -937,6 +985,16 @@ function drawPolinaSprite(ctx, img, rig, P, o, arm) {
   const leg = (L, hip, knee, dark) => {
     const src = dark ? darkened(L.img) : L.img;
     const pX = ox + L.hipX * W, kX = ox + L.kneeX * W;
+    if (rig.shuffle) {
+      // длинное платье: из-под подола видны только туфельки — они переступают
+      // вперёд-назад, а та, что идёт вперёд, чуть приподнимается
+      const k = hip / (rig.swing || 1);
+      ctx.save();
+      ctx.translate(-k * rig.shuffle * W, -Math.max(0, -k) * 0.012 * H);
+      ctx.drawImage(src, ox, oy, W, H);
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.translate(pX, hipY);
     ctx.rotate(hip);
@@ -956,7 +1014,7 @@ function drawPolinaSprite(ctx, img, rig, P, o, arm) {
     ctx.restore();
   };
 
-  if (arm) drawArm(armBack, darkened(arm.img));
+  if (arm) drawArm(armBack, elbowBack, darkened(arm.img));
   leg(P.back, bh, bk, true);
   leg(P.front, fh, fk, false);
   ctx.save();
@@ -964,7 +1022,7 @@ function drawPolinaSprite(ctx, img, rig, P, o, arm) {
   ctx.rotate(lean);
   ctx.drawImage(P.top, ox - pivX, oy - hipY, W, H);
   ctx.restore();
-  if (arm) drawArm(armFront, arm.img);
+  if (arm) drawArm(armFront, elbowFront, arm.img);
   ctx.restore();
 }
 

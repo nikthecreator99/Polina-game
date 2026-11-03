@@ -55,6 +55,6 @@ export const RIG = {
     arm: { shoulderX: 0.552, shoulderY: 0.274, pivotX: 0.103, pivotY: 0.536 } },
   blue: { cut: 0.769, knee: 0.825, swing: 0.45, split: true,
     arm: { shoulderX: 0.579, shoulderY: 0.273, pivotX: 0.085, pivotY: 0.538 } },
-  yolochka: { cut: 0.9, swing: 0.16,
+  yolochka: { cut: 0.918, swing: 0.16, overlap: 0, shuffle: 0.16,
     arm: { shoulderX: 0.567, shoulderY: 0.264, pivotX: 0.084, pivotY: 0.5 } },
 };
