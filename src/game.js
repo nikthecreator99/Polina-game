@@ -20,6 +20,8 @@ const STEP = 1 / 120;
 const isSolid = (t) => t === '#' || t === 'B';
 const canStand = (t) => isSolid(t) || t === '=';
 
+const LAND_TIME = 0.2; // сколько длится приседание при приземлении
+
 export class Game {
   constructor(def, events) {
     this.def = def;
@@ -40,7 +42,7 @@ export class Game {
     this.player = {
       w: Math.round(32 * s), h: Math.round(72 * s), scale: s,
       x: 0, y: 0, vx: 0, vy: 0, onGround: false, facing: 1,
-      coyote: 0, buffer: 0, invuln: 0, throwCd: 0, throwAnim: 0, anim: 0,
+      coyote: 0, buffer: 0, invuln: 0, throwCd: 0, throwAnim: 0, anim: 0, land: 0, fallV: 0,
     };
     const st = this.level.start;
     this.spawn = { x: st.x * TILE + TILE / 2, y: this.groundBelow(st.x, st.y) };
@@ -193,9 +195,16 @@ export class Game {
     p.vy = Math.min(p.vy + g * dt, MAX_FALL);
 
     const wasGround = p.onGround;
+    const vyBefore = p.vy;
     const res = this.moveBody(p, dt);
     p.onGround = res.ground;
-    if (p.onGround && !wasGround) this.puff(p.x + p.w / 2, p.y + p.h, 3);
+    if (p.onGround && !wasGround) {
+      this.puff(p.x + p.w / 2, p.y + p.h, 3);
+      // приземление: чем выше падала, тем глубже присядет
+      p.land = LAND_TIME;
+      p.fallV = Math.min(1, Math.max(0.35, vyBefore / 700));
+    }
+    p.land = Math.max(0, p.land - dt);
 
     p.anim += Math.abs(p.vx) * dt * 0.05;
     p.invuln = Math.max(0, p.invuln - dt);
@@ -480,8 +489,9 @@ export class Game {
       drawHeroine(ctx, {
         shadowY,
         x: p.x + p.w / 2, y: p.y + p.h, h: p.h, facing: p.facing,
-        running: p.onGround && Math.abs(p.vx) > 20, airborne: !p.onGround,
-        anim: p.anim, throwing: p.throwAnim > 0, outfitId: OUTFITS[save.outfit] ? save.outfit : 'sundress', outfit: OUTFITS[save.outfit] || OUTFITS.sundress,
+        running: p.onGround && Math.abs(p.vx) > 20, airborne: !p.onGround, vy: p.vy,
+        land: p.land > 0 ? Math.sin((1 - p.land / LAND_TIME) * Math.PI) * p.fallV : 0,
+        anim: p.anim, throwing: p.throwAnim > 0, throwT: 1 - p.throwAnim / 0.22, outfitId: OUTFITS[save.outfit] ? save.outfit : 'sundress', outfit: OUTFITS[save.outfit] || OUTFITS.sundress,
       });
     }
 

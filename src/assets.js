@@ -11,10 +11,16 @@ const LIST = {
   coin: 'img/obj/coin.png',
   stone: 'img/obj/stone.png',
   sign: 'img/obj/sign.png',
-  'side-sundress': 'img/polina/side-sundress.png',
-  'side-yolochka': 'img/polina/side-yolochka.png',
-  'side-blue': 'img/polina/side-blue.png',
-  'side-pajamas': 'img/polina/side-pajamas.png',
+  trainHead: 'img/obj/train-head.png',
+  trainCar: 'img/obj/train-car.png',
+  'body-sundress': 'img/polina/body-sundress.png',
+  'arm-sundress': 'img/polina/arm-sundress.png',
+  'body-yolochka': 'img/polina/body-yolochka.png',
+  'arm-yolochka': 'img/polina/arm-yolochka.png',
+  'body-blue': 'img/polina/body-blue.png',
+  'arm-blue': 'img/polina/arm-blue.png',
+  'body-pajamas': 'img/polina/body-pajamas.png',
+  'arm-pajamas': 'img/polina/arm-pajamas.png',
   'front-sundress': 'img/polina/front-sundress.webp',
   'front-yolochka': 'img/polina/front-yolochka.webp',
   'front-blue': 'img/polina/front-blue.webp',
@@ -35,14 +41,20 @@ export function loadAssets(onProgress) {
   })));
 }
 
-export const ASSET_FILES = Object.values(LIST);
 
-// Как резать Полину сбоку на части (доли от высоты/ширины картинки):
-// cut — где кончается платье/кофта и начинаются ноги, pivotX — где тазобедренный «шарнир»,
-// footX — где стопы (по ним ставим её на землю), swing — насколько широко шагает.
+// Как резать Полину сбоку на части (доли от высоты/ширины картинки тела):
+// cut — где кончается платье/кофта и начинаются ноги; knee — где колени (нет — ноги под платьем);
+// swing — насколько широко шагает; split — подол ниже cut отделять от ног по цвету;
+// apart — ноги на картинке расставлены, режем на заднюю и переднюю.
+// arm — где плечо на теле (shoulderX/Y) и где плечевой шарнир на картинке руки (pivotX/Y).
+// Шарниры бедра, колена и стоп находятся сами по картинке.
 export const RIG = {
-  sundress: { cut: 0.675, pivotX: 0.466, footX: 0.557, swing: 0.5 },
-  yolochka: { cut: 0.9, pivotX: 0.484, footX: 0.529, swing: 0.18 },
-  blue: { cut: 0.775, pivotX: 0.376, footX: 0.559, swing: 0.45 },
-  pajamas: { cut: 0.62, pivotX: 0.557, footX: 0.628, swing: 0.3 },
+  sundress: { cut: 0.683, knee: 0.79, swing: 0.42, split: true, apart: true,
+    arm: { shoulderX: 0.519, shoulderY: 0.27, pivotX: 0.085, pivotY: 0.538 } },
+  pajamas: { cut: 0.522, knee: 0.78, swing: 0.36, apart: true,
+    arm: { shoulderX: 0.552, shoulderY: 0.274, pivotX: 0.103, pivotY: 0.536 } },
+  blue: { cut: 0.769, knee: 0.825, swing: 0.45, split: true,
+    arm: { shoulderX: 0.579, shoulderY: 0.273, pivotX: 0.085, pivotY: 0.538 } },
+  yolochka: { cut: 0.9, swing: 0.16,
+    arm: { shoulderX: 0.567, shoulderY: 0.264, pivotX: 0.084, pivotY: 0.5 } },
 };

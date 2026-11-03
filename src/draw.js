@@ -467,21 +467,130 @@ function finishFlag(ctx, x, ground, t) {
 
 // ---------------- Гусь ----------------
 
+// Гусь из картинки: оранжевые лапы вырезаем по цвету в отдельные слои и качаем
+// их вокруг «бедра», тело рисуем целиком без лап.
+const gooseCache = new Map();
+function prepareGoose(img) {
+  if (gooseCache.has(img)) return gooseCache.get(img);
+  let res = null;
+  try {
+    const w = img.width, h = img.height;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, w, h).data;
+    const leg = new Uint8Array(w * h);
+    for (let y = Math.floor(h * 0.55); y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const r = d[i], gg = d[i + 1], b = d[i + 2];
+        if (d[i + 3] > 30 && r > 150 && r - b > 100 && gg < r - 25) leg[y * w + x] = 1;
+      }
+    }
+    // связные куски оранжевого: две самые большие — это две лапы
+    const lab = new Int32Array(w * h);
+    const sizes = [0];
+    const stack = [];
+    for (let p = 0; p < w * h; p++) {
+      if (!leg[p] || lab[p]) continue;
+      const id = sizes.length;
+      let n = 0;
+      lab[p] = id; stack.push(p);
+      while (stack.length) {
+        const q = stack.pop(); n++;
+        const x = q % w, y = (q - x) / w;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx, yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+          const r = yy * w + xx;
+          if (leg[r] && !lab[r]) { lab[r] = id; stack.push(r); }
+        }
+      }
+      sizes.push(n);
+    }
+    const ids = sizes.map((n, i) => [n, i]).slice(1).sort((a, b) => b[0] - a[0]).slice(0, 2)
+      .filter(([n]) => n > w * h * 0.004).map(([, i]) => i);
+    if (ids.length === 2) {
+      // немного «раздуваем» лапы, чтобы на теле не осталось оранжевой каймы
+      const grow = (mask) => {
+        const out = new Uint8Array(mask);
+        for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+          const p = y * w + x;
+          if (!mask[p] && (mask[p - 1] || mask[p + 1] || mask[p - w] || mask[p + w])) out[p] = 1;
+        }
+        return out;
+      };
+      const legs = ids.map((id) => {
+        let m = new Uint8Array(w * h);
+        for (let p = 0; p < w * h; p++) if (lab[p] === id) m[p] = 1;
+        m = grow(grow(m));
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const cg = cv.getContext('2d');
+        const id2 = cg.createImageData(w, h);
+        let top = h, sx = 0, n = 0;
+        for (let p = 0; p < w * h; p++) {
+          if (!m[p]) continue;
+          id2.data.set(d.subarray(p * 4, p * 4 + 4), p * 4);
+          top = Math.min(top, Math.floor(p / w));
+        }
+        for (let x = 0; x < w; x++) for (let y = top; y < top + 6; y++) if (m[y * w + x]) { sx += x; n++; }
+        cg.putImageData(id2, 0, 0);
+        return { img: cv, mask: m, hipX: n ? sx / n : w / 2, hipY: top + 3 };
+      });
+      const body = document.createElement('canvas');
+      body.width = w; body.height = h;
+      const bg = body.getContext('2d');
+      const bd = bg.createImageData(w, h);
+      bd.data.set(d);
+      for (const L of legs) for (let p = 0; p < w * h; p++) if (L.mask[p]) bd.data[p * 4 + 3] = 0;
+      bg.putImageData(bd, 0, 0);
+      legs.sort((a, b) => a.hipX - b.hipX);
+      res = { body, legs };
+    }
+  } catch (e) { /* без доступа к пикселям — гусь целиком */ }
+  gooseCache.set(img, res);
+  return res;
+}
+
 export function drawEnemy(ctx, e, t) {
   if (e.alive) drawShadow(ctx, e.x + e.w / 2, e.y + e.h, 26, 0.3);
   const img = e.angry ? IMG.gooseAngry : IMG.gooseWalk;
   if (img) {
     const h = e.angry ? 58 : 70;
-    const w = h * (img.width / img.height);
-    const step = Math.sin(t * 10 + e.x * 0.05);
+    const s = h / img.height;
+    const w = img.width * s;
+    const ph = t * (e.angry ? 14 : 10) + e.x * 0.05;
+    const step = Math.sin(ph);
+    const G = prepareGoose(img);
     ctx.save();
     ctx.translate(e.x + e.w / 2, e.y + e.h);
     if (!e.alive) ctx.rotate(Math.PI * (1 - Math.max(0, e.dead) / 0.6));
     ctx.scale(e.dir > 0 ? 1 : -1, 1);
-    ctx.translate(0, -Math.abs(step) * 2);
-    ctx.rotate(step * 0.06);
     // гусь смотрит вправо; центр тела чуть левее середины картинки
-    ctx.drawImage(img, -w * (e.angry ? 0.3 : 0.45), -h, w, h);
+    const ox = -w * (e.angry ? 0.3 : 0.45);
+    if (G) {
+      const swing = e.alive ? 0.45 : 0;
+      G.legs.forEach((L, k) => {
+        const a = (k === 0 ? step : -step) * swing;
+        // лапа, которая идёт вперёд, чуть приподнимается
+        const lift = Math.max(0, k === 0 ? -Math.cos(ph) : Math.cos(ph)) * 3;
+        const hx = ox + L.hipX * s, hy = -h + L.hipY * s;
+        ctx.save();
+        ctx.translate(hx, hy - lift);
+        ctx.rotate(a);
+        ctx.drawImage(L.img, ox - hx, -h - hy, w, h);
+        ctx.restore();
+      });
+      ctx.translate(0, -Math.abs(Math.cos(ph)) * 2);
+      ctx.rotate(step * 0.05);
+      ctx.drawImage(G.body, ox, -h, w, h);
+    } else {
+      ctx.translate(0, -Math.abs(step) * 2);
+      ctx.rotate(step * 0.06);
+      ctx.drawImage(img, ox, -h, w, h);
+    }
     ctx.restore();
     return;
   }
@@ -579,52 +688,295 @@ function darkened(img) {
   return c;
 }
 
-// Полина из картинки сбоку: верх целиком, ноги отдельной полоской, которая
-// качается вокруг «тазобедренного шарнира». Задняя нога — та же полоска, чуть темнее.
-function drawPolinaSprite(ctx, img, rig, o) {
-  const { x, y, h, facing, running, airborne, anim, throwing } = o;
+// ---------- Полина из картинки сбоку («кукла на шарнирах») ----------
+// Картинка тела (без ближней руки) режется на части прямо в браузере:
+//  • верх (голова, туловище, платье целиком, включая подол ниже линии разреза);
+//  • ноги ниже подола — если ноги на картинке расставлены, то отдельно задняя и передняя;
+//  • каждая нога ещё делится по колену на бедро и голень.
+// Рука — отдельная картинка, крутится вокруг плеча.
+
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const mkCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+
+// Средняя x непрозрачных пикселей в строках [y0, y1] (доля ширины).
+function centerX(data, w, y0, y1, x0 = 0, x1 = w) {
+  let sum = 0, n = 0;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x < x1; x++) if (data[(y * w + x) * 4 + 3] > 128) { sum += x; n++; }
+  }
+  return n ? sum / n / w : null;
+}
+
+// Оставляет в маске только самый большой связный кусок (убирает обрезки ремешков
+// и пальцев другой ноги, попавшие не в ту половину).
+function keepLargest(arr, w, h) {
+  const lab = new Int32Array(w * h);
+  let best = 0, bestN = 0, id = 0;
+  const stack = [];
+  for (let p = 0; p < w * h; p++) {
+    if (lab[p] || arr[p * 4 + 3] < 40) continue;
+    id++;
+    let n = 0;
+    stack.push(p); lab[p] = id;
+    while (stack.length) {
+      const q = stack.pop(); n++;
+      const x = q % w, y = (q - x) / w;
+      for (const r of [x > 0 ? q - 1 : -1, x < w - 1 ? q + 1 : -1, y > 0 ? q - w : -1, y < h - 1 ? q + w : -1]) {
+        if (r >= 0 && !lab[r] && arr[r * 4 + 3] >= 40) { lab[r] = id; stack.push(r); }
+      }
+    }
+    if (n > bestN) { bestN = n; best = id; }
+  }
+  for (let p = 0; p < w * h; p++) if (lab[p] !== best) arr[p * 4 + 3] = 0;
+}
+
+const prepCache = new Map();
+function preparePolina(img, rig) {
+  const key = img.src;
+  if (prepCache.has(key)) return prepCache.get(key);
+  let res = null;
+  try {
+    const w = img.width, h = img.height;
+    const src = mkCanvas(w, h).getContext('2d');
+    src.drawImage(img, 0, 0);
+    const d = src.getImageData(0, 0, w, h).data;
+    const top = new Uint8ClampedArray(d);
+    const legs = new Uint8ClampedArray(d);
+    const cutY = Math.floor(h * rig.cut);
+    const y0 = Math.floor(h * (rig.cut - 0.03));
+    // Цвет одежды чуть выше разреза: им отличаем подол от ног.
+    let cr = 0, cg = 0, cb = 0;
+    if (rig.split) {
+      const rs = [], gs = [], bs = [];
+      for (let y = Math.floor(h * (rig.cut - 0.1)); y < h * (rig.cut - 0.02); y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          if (d[i + 3] > 200) { rs.push(d[i]); gs.push(d[i + 1]); bs.push(d[i + 2]); }
+        }
+      }
+      const med = (a) => a.sort((p, q) => p - q)[a.length >> 1] || 0;
+      const mr = med(rs), mg = med(gs), mb = med(bs), ms = mr + mg + mb + 1;
+      cr = mr / ms; cg = mg / ms; cb = mb / ms;
+    }
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (y < y0) { legs[i + 3] = 0; continue; }
+        let legW = 1;
+        if (rig.split) {
+          const s = d[i] + d[i + 1] + d[i + 2] + 1;
+          const cd = Math.abs(d[i] / s - cr) + Math.abs(d[i + 1] / s - cg) + Math.abs(d[i + 2] / s - cb);
+          legW = clamp01((cd - 0.09) / 0.06); // 1 — точно не одежда
+        }
+        legs[i + 3] = d[i + 3] * legW;
+        if (y >= cutY) top[i + 3] = rig.split && y < h * (rig.cut + 0.07) ? d[i + 3] * (1 - legW) : 0;
+      }
+    }
+    const toCanvas = (arr) => {
+      const c = mkCanvas(w, h);
+      c.getContext('2d').putImageData(new ImageData(arr, w, h), 0, 0);
+      return c;
+    };
+    const kneeY = Math.floor(h * (rig.knee || 0.97));
+    const footY0 = Math.floor(h * 0.965), footY1 = Math.floor(h * 0.99);
+    const footX = centerX(d, w, footY0, footY1) ?? 0.5;
+    const legInfo = (arr, x0, x1) => {
+      let low = h - 1; // самая нижняя строка этой ноги (подошва)
+      while (low > 0) {
+        let any = false;
+        for (let x = 0; x < w && !any; x++) any = arr[(low * w + x) * 4 + 3] > 128;
+        if (any) break;
+        low--;
+      }
+      return {
+        img: toCanvas(arr),
+        hipX: centerX(arr, w, cutY + 1, cutY + 6) ?? footX,
+        kneeX: centerX(arr, w, kneeY - 1, kneeY + 1) ?? footX,
+        footX: centerX(arr, w, Math.max(0, low - Math.floor(h * 0.025)), low) ?? footX,
+        footY: (low + 1) / h,
+      };
+    };
+    let back, front;
+    if (rig.apart) {
+      // Где проходит просвет между ногами — для каждой строки отдельно: где ноги
+      // разошлись, режем посередине просвета; выше (где штанины слиты) — по ближайшему просвету.
+      const splitAt = new Array(h).fill(null);
+      for (let y = y0; y < h; y++) {
+        const runs = [];
+        let st = -1;
+        for (let x = 0; x <= w; x++) {
+          const on = x < w && legs[(y * w + x) * 4 + 3] > 100;
+          if (on && st < 0) st = x;
+          if (!on && st >= 0) { if (x - st > 2) runs.push([st, x]); st = -1; }
+        }
+        if (runs.length >= 2) {
+          // самый широкий просвет между соседними кусками
+          let gi = 0, gw = -1;
+          for (let k = 0; k + 1 < runs.length; k++) {
+            const gap = runs[k + 1][0] - runs[k][1];
+            if (gap > gw) { gw = gap; gi = k; }
+          }
+          splitAt[y] = (runs[gi][1] + runs[gi + 1][0]) / 2;
+        }
+      }
+      // строки без просвета берут значение ближайшей строки с просветом снизу/сверху
+      let firstGap = splitAt.findIndex((v) => v !== null);
+      if (firstGap < 0) firstGap = h - 1;
+      let lastVal = splitAt[firstGap] ?? w / 2;
+      for (let y = 0; y < h; y++) {
+        if (splitAt[y] === null) splitAt[y] = lastVal; else lastVal = splitAt[y];
+      }
+      const best = Math.round(splitAt[Math.floor(h * 0.9)]);
+      const b = new Uint8ClampedArray(legs), f = new Uint8ClampedArray(legs);
+      for (let y = 0; y < h; y++) {
+        const sx = splitAt[y];
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          if (x >= sx) b[i + 3] = 0; else f[i + 3] = 0;
+        }
+      }
+      keepLargest(b, w, h);
+      keepLargest(f, w, h);
+      back = legInfo(b, 0, best);
+      front = legInfo(f, best, w);
+    } else {
+      back = front = legInfo(legs, 0, w);
+    }
+    res = { top: toCanvas(top), back, front, footX, hipX: (back.hipX + front.hipX) / 2 };
+  } catch (e) { /* без доступа к пикселям (file://) рисуем запасную Полину кодом */ }
+  prepCache.set(key, res);
+  return res;
+}
+
+function drawPolinaSprite(ctx, img, rig, P, o, arm) {
+  const { x, y, h, facing, running, airborne, anim, throwing, throwT = 0, vy = 0, land = 0 } = o;
   const H = h * 1.4;
   const s = H / img.height;
   const W = img.width * s;
   const swing = running ? Math.sin(anim) : 0;
-  const bob = running ? Math.abs(Math.cos(anim)) * 2.2 : 0;
-  ctx.save();
-  ctx.translate(x, y - bob);
-  ctx.scale(facing, 1);
-  const ox = -rig.footX * W;
+  const ox = -P.footX * W;
   const oy = -H;
-  const pivX = ox + rig.pivotX * W;
-  const pivY = oy + rig.cut * H;
-  const srcCut = rig.cut * img.height;
-  const sy = srcCut - img.height * 0.03;
-  const sh = img.height - sy;
-  let front = 0;
-  let back = 0;
-  if (airborne) { front = rig.swing * 0.8; back = -rig.swing * 0.6; }
-  else if (running) { front = swing * rig.swing; back = -swing * rig.swing; }
-  const leg = (angle, src) => {
+  const hipY = oy + rig.cut * H;
+  const hasKnee = !!rig.knee;
+  const kneeSrc = (rig.knee || 1) * img.height;
+  const kneeY = oy + (rig.knee || 1) * H;
+
+  // ---- позы ног: угол в бедре (плюс — стопа назад) и сгиб колена (плюс — пятка назад)
+  let fh = 0, fk = 0, bh = 0, bk = 0;
+  if (airborne) {
+    const fall = clamp01((vy + 150) / 550); // 0 — летит вверх, 1 — падает
+    if (hasKnee) {
+      fh = lerp(-0.85, -0.3, fall); fk = lerp(1.35, 0.45, fall);
+      bh = lerp(0.2, 0.12, fall); bk = lerp(1.15, 0.55, fall);
+    } else { fh = rig.swing * 0.8; bh = -rig.swing * 0.6; }
+  } else if (running) {
+    fh = swing * rig.swing; bh = -swing * rig.swing;
+    if (hasKnee) {
+      fk = 0.12 + 0.9 * Math.max(0, fh / rig.swing);
+      bk = 0.12 + 0.9 * Math.max(0, bh / rig.swing);
+    }
+  }
+  if (land > 0 && hasKnee) {
+    fh = lerp(fh, -0.75, land); fk = lerp(fk, 1.4, land);
+    bh = lerp(bh, -0.45, land); bk = lerp(bk, 1.2, land);
+  }
+
+  const rot = (px, py, cx, cy, a) => {
+    const c = Math.cos(a), sn = Math.sin(a);
+    return [cx + (px - cx) * c - (py - cy) * sn, cy + (px - cx) * sn + (py - cy) * c];
+  };
+  // Насколько поднялась стопа из-за сгиба: прогоняем пятку и носок через те же повороты.
+  const footLift = (L, hip, knee) => {
+    const pX = ox + L.hipX * W, kX = ox + L.kneeX * W, fX = ox + L.footX * W;
+    const fY = oy + L.footY * H;
+    let lowest = -Infinity;
+    for (const dx of [-0.1 * W, 0.12 * W]) {
+      let [px, py] = hasKnee ? rot(fX + dx, fY, kX, kneeY, knee) : [fX + dx, fY];
+      [px, py] = rot(px, py, pX, hipY, hip);
+      lowest = Math.max(lowest, py);
+    }
+    return -lowest;
+  };
+  const drop = airborne ? 0 : Math.min(footLift(P.front, fh, fk), footLift(P.back, bh, bk));
+  const bob = running ? Math.abs(Math.cos(anim)) * 2.2 : 0;
+
+  ctx.save();
+  ctx.translate(x, y - bob + drop);
+  ctx.scale(facing, 1);
+  if (!hasKnee && land > 0) ctx.scale(1 + 0.05 * land, 1 - 0.08 * land); // длинное платье: пружиним телом
+  const lean = (throwing ? 0.14 : 0) + (running ? 0.04 : 0) + (airborne ? -0.03 : 0) + land * 0.12;
+  const pivX = ox + P.hipX * W;
+
+  // ---- руки: угол 0 — вытянута вперёд, PI/2 — висит вниз
+  let armFront = Math.PI / 2 - 0.08;
+  let armBack = Math.PI / 2 + 0.08;
+  if (running) { armFront -= swing * 0.75; armBack += swing * 0.75; }
+  if (airborne) {
+    const fall = clamp01((vy + 150) / 550);
+    armFront = lerp(0.35, 0.9, fall); armBack = lerp(2.4, 1.9, fall);
+  }
+  if (land > 0) { armFront = lerp(armFront, 0.9, land); armBack = lerp(armBack, 1.2, land); }
+  if (throwing) {
+    const e = 1 - (1 - clamp01(throwT)) ** 2;
+    armFront = lerp(Math.PI + 0.7, 0.15, e); // замах из-за головы и бросок вперёд
+  }
+  const drawArm = (angle, src) => {
+    if (!arm) return;
+    const a = arm.rig;
     ctx.save();
-    ctx.translate(pivX, pivY);
+    ctx.translate(pivX, hipY);
+    ctx.rotate(lean);
+    ctx.translate(ox + a.shoulderX * W - pivX, oy + a.shoulderY * H - hipY);
     ctx.rotate(angle);
-    ctx.drawImage(src, 0, sy, img.width, sh, ox - pivX, oy + sy * s - pivY, W, sh * s);
+    ctx.drawImage(src, -a.pivotX * src.width * s, -a.pivotY * src.height * s, src.width * s, src.height * s);
     ctx.restore();
   };
-  leg(back, darkened(img));
-  leg(front, img);
-  // верх с лёгким наклоном вперёд на бегу и при броске
-  const lean = (throwing ? 0.14 : 0) + (running ? 0.04 : 0) + (airborne ? -0.03 : 0);
-  ctx.translate(pivX, pivY);
+
+  // ---- нога: бедро вокруг тазобедренного шарнира, голень вокруг колена
+  const leg = (L, hip, knee, dark) => {
+    const src = dark ? darkened(L.img) : L.img;
+    const pX = ox + L.hipX * W, kX = ox + L.kneeX * W;
+    ctx.save();
+    ctx.translate(pX, hipY);
+    ctx.rotate(hip);
+    ctx.translate(-pX, -hipY);
+    if (!hasKnee) {
+      ctx.drawImage(src, ox, oy, W, H);
+    } else {
+      const ov = img.height * 0.02;
+      const thighEnd = kneeSrc + ov;
+      ctx.drawImage(src, 0, 0, img.width, thighEnd, ox, oy, W, thighEnd * s);
+      ctx.translate(kX, kneeY);
+      ctx.rotate(knee);
+      ctx.translate(-kX, -kneeY);
+      const shin0 = kneeSrc - ov;
+      ctx.drawImage(src, 0, shin0, img.width, img.height - shin0, ox, oy + shin0 * s, W, (img.height - shin0) * s);
+    }
+    ctx.restore();
+  };
+
+  if (arm) drawArm(armBack, darkened(arm.img));
+  leg(P.back, bh, bk, true);
+  leg(P.front, fh, fk, false);
+  ctx.save();
+  ctx.translate(pivX, hipY);
   ctx.rotate(lean);
-  ctx.drawImage(img, 0, 0, img.width, srcCut, ox - pivX, oy - pivY, W, srcCut * s);
+  ctx.drawImage(P.top, ox - pivX, oy - hipY, W, H);
+  ctx.restore();
+  if (arm) drawArm(armFront, arm.img);
   ctx.restore();
 }
 
 export function drawHeroine(ctx, o) {
   const { x, y, h, facing, running, airborne, anim, throwing, outfit } = o;
-  const sprite = IMG['side-' + o.outfitId];
-  if (sprite && RIG[o.outfitId]) {
+  const rig = RIG[o.outfitId];
+  const body = rig && IMG['body-' + o.outfitId];
+  const P = body && preparePolina(body, rig);
+  if (P) {
     if (o.shadowY !== undefined) drawShadow(ctx, x, o.shadowY, 20 * (h / 64), airborne ? 0.15 : 0.32);
-    drawPolinaSprite(ctx, sprite, RIG[o.outfitId], o);
+    const armImg = IMG['arm-' + o.outfitId];
+    drawPolinaSprite(ctx, body, rig, P, o, armImg && rig.arm ? { img: armImg, rig: rig.arm } : null);
     return;
   }
   const u = h / 64;

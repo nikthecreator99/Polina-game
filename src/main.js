@@ -6,7 +6,9 @@ import { input, initInput } from './input.js';
 import { save, persist } from './save.js';
 import { drawBackground, drawVignette, setRenderScale } from './draw.js';
 
-const VIEW_H = 540; // виртуальная высота экрана; ширина зависит от пропорций устройства
+// Виртуальная высота экрана; ширина зависит от пропорций устройства.
+// На телефоне (низкий широкий экран) мир чуть крупнее, чтобы Полину было хорошо видно.
+let VIEW_H = 540;
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -26,6 +28,7 @@ function resize() {
   const h = window.innerHeight;
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
+  VIEW_H = h < 500 ? 450 : 540;
   scale = canvas.height / VIEW_H;
   viewW = canvas.width / scale;
   setRenderScale(scale);

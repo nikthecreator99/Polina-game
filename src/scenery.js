@@ -456,13 +456,31 @@ function imageStrip(ctx, img, off, y, w, h, W) {
   }
 }
 
-function trainPass(ctx, W, y, t) {
-  const period = 24;
+// Электричка: голова (кабина слева, едет влево), два вагона и хвост (та же голова зеркально).
+const TRAIN_H = 64;
+function trainPass(ctx, W, y, t, IMG = {}) {
+  const head = IMG.trainHead, car = IMG.trainCar;
+  const hw = head ? TRAIN_H * head.width / head.height : 190;
+  const cw = car ? TRAIN_H * car.width / car.height : 190;
+  const len = head && car ? hw * 2 + cw * 2 - 18 : 4 * 190;
+  const period = 26;
   const phase = (t % period) / period;
-  const len = 4 * 190;
-  const span = W + len + 600;
+  const span = W + len + 900;
   const tx = W + 300 - phase * span;
-  if (tx < W && tx + len > 0) train(ctx, tx, y);
+  if (!(tx < W && tx + len > 0)) return;
+  if (!head || !car) { train(ctx, tx, y); return; }
+  const top = y - TRAIN_H + 2;
+  ctx.fillStyle = 'rgba(0,0,0,.2)';
+  ctx.fillRect(tx + 10, y - 3, len - 20, 5);
+  let x = tx;
+  ctx.drawImage(head, x, top, hw, TRAIN_H);
+  x += hw - 6;
+  for (let i = 0; i < 2; i++) { ctx.drawImage(car, x, top, cw, TRAIN_H); x += cw - 6; }
+  ctx.save();
+  ctx.translate(x + hw, top);
+  ctx.scale(-1, 1);
+  ctx.drawImage(head, 0, 0, hw, TRAIN_H);
+  ctx.restore();
 }
 
 // Трава под картинкой деревни (видна на главной и в магазине): мягкий градиент,
@@ -580,7 +598,7 @@ export function drawScenery(ctx, cx, dy, W, t, IMG = {}) {
     fade.addColorStop(1, 'rgba(104, 119, 11, 0)');
     ctx.fillStyle = fade;
     ctx.fillRect(0, fy, W, 40);
-    trainPass(ctx, W, vy + VILLAGE_H * VILLAGE_RAIL - 2, t);
+    trainPass(ctx, W, vy + VILLAGE_H * VILLAGE_RAIL - 2, t, IMG);
   } else {
     blit(ctx, villageLayer(), cx * 0.4, -dy * 0.4, W);
     railway(ctx, cx * 0.55, 418 - dy * 0.55, W, t);
