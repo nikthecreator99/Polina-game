@@ -2,7 +2,7 @@ import { TILE, parseLevel } from './levels.js';
 import { CONFIG, AGES, OUTFITS } from './config.js';
 import { input } from './input.js';
 import { save } from './save.js';
-import { drawBackground, drawTiles, drawCoin, drawEnemy, drawHeroine, drawStation, drawCheckpoint, drawStone, drawSign, drawHint } from './draw.js';
+import { drawBackground, drawTiles, drawCoin, drawEnemy, drawHeroine, drawStation, drawCheckpoint, drawStone, drawSign, drawHint, drawVignette, drawShadow } from './draw.js';
 
 // Физика (пиксели и секунды). Подобрано под «мягкий» платформер.
 const G = 2300;
@@ -471,8 +471,11 @@ export class Game {
     for (const e of this.enemies) drawEnemy(ctx, e, this.time);
 
     const p = this.player;
+    const gy = this.groundBelow((p.x + p.w / 2) / TILE, (p.y + p.h - 2) / TILE);
+    const shadowY = gy - (p.y + p.h) < 260 ? gy : undefined;
     if (!(p.invuln > 0 && Math.floor(p.invuln * 10) % 2 === 0)) {
       drawHeroine(ctx, {
+        shadowY,
         x: p.x + p.w / 2, y: p.y + p.h, h: p.h, facing: p.facing,
         running: p.onGround && Math.abs(p.vx) > 20, airborne: !p.onGround,
         anim: p.anim, throwing: p.throwAnim > 0, outfit: OUTFITS[save.outfit] || OUTFITS.starter,
@@ -480,6 +483,7 @@ export class Game {
     }
 
     for (const s of this.shots) drawStone(ctx, s.x, s.y, s.r, s.a);
+    for (const c of this.level.coins) if (!c.taken && c.x > cx - 40 && c.x < cx + W + 40) drawShadow(ctx, c.x, this.groundBelow(c.x / TILE, c.y / TILE), 10, 0.12);
 
     for (const q of this.particles) {
       ctx.globalAlpha = Math.min(1, q.life * 3);
@@ -501,6 +505,7 @@ export class Game {
     ctx.globalAlpha = 1;
     ctx.restore();
 
+    drawVignette(ctx, W);
     if (this.hint && this.hintAlpha > 0) drawHint(ctx, this.hint, W, this.hintAlpha);
   }
 }

@@ -1,9 +1,9 @@
 import { Game } from './game.js';
 import { LEVELS } from './levels.js';
-import { CONFIG, OUTFITS } from './config.js';
+import { CONFIG } from './config.js';
 import { input, initInput } from './input.js';
 import { save, persist } from './save.js';
-import { drawBackground, drawHeroine } from './draw.js';
+import { drawBackground, drawVignette, setRenderScale } from './draw.js';
 
 const VIEW_H = 540; // виртуальная высота экрана; ширина зависит от пропорций устройства
 
@@ -27,6 +27,7 @@ function resize() {
   canvas.height = Math.round(h * dpr);
   scale = canvas.height / VIEW_H;
   viewW = canvas.width / scale;
+  setRenderScale(scale);
   if (game) game.setView(viewW, VIEW_H);
 }
 window.addEventListener('resize', resize);
@@ -153,17 +154,7 @@ function frame(now) {
     // Фон главного меню: медленно «едем» по Зелёному, слева стоит Полина.
     menuTime += dt;
     drawBackground(ctx, 'zeleny', menuTime * 20, 0, viewW, VIEW_H, menuTime);
-    ctx.fillStyle = '#6cc04a';
-    ctx.fillRect(0, VIEW_H * 0.86, viewW, VIEW_H);
-    ctx.fillStyle = '#8a5a34';
-    ctx.fillRect(0, VIEW_H * 0.86 + 14, viewW, VIEW_H);
-    if (mode === 'menu') {
-      drawHeroine(ctx, {
-        x: viewW * 0.24, y: VIEW_H * 0.86 + 2, h: 300, facing: 1,
-        running: false, airborne: false, anim: 0, throwing: false,
-        outfit: OUTFITS[save.outfit] || OUTFITS.starter,
-      });
-    }
+    drawVignette(ctx, viewW);
   }
   requestAnimationFrame(frame);
 }

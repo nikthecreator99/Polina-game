@@ -149,12 +149,40 @@ canvas#game {
 #screen-menu { justify-content: flex-end; padding-right: calc(6vw + var(--safe-r)); }
 .menu-hero {
   position: absolute;
-  left: 8vw;
-  bottom: 9vh;
-  width: 26vw;
-  height: 62vh;
+  left: 7vw;
+  top: 50%;
+  transform: translateY(-50%);
   pointer-events: none;
 }
+.polaroid {
+  position: relative;
+  margin: 0;
+  padding: 14px 14px 0;
+  width: min(34vw, 46vh);
+  background: #fffdf8;
+  border-radius: 6px;
+  transform: rotate(-4deg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .15), 0 18px 40px rgba(20, 40, 20, .35);
+  animation: sway 6s ease-in-out infinite;
+}
+.polaroid img { display: block; width: 100%; aspect-ratio: 5 / 6; object-fit: cover; border-radius: 3px; }
+.polaroid figcaption {
+  text-align: center;
+  padding: 10px 0 14px;
+  font: 700 28px/1 "Marker Felt", "Comic Sans MS", cursive;
+  color: #3a3a3a;
+}
+.polaroid .tape {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 110px;
+  height: 30px;
+  transform: translateX(-50%) rotate(3deg);
+  background: rgba(255, 236, 170, .75);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+@keyframes sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(-2.5deg); } }
 .menu-box {
   width: min(420px, 44vw);
   display: flex;
