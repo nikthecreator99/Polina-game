@@ -43,14 +43,15 @@
   <section id="screen-menu" class="screen">
     <div class="menu-hero" id="menu-hero">
       <img id="menu-girl" class="menu-girl" alt="Полина">
+      <img id="menu-dance" class="menu-girl dance" src="img/polina/dance-sundress.webp" alt="">
     </div>
     <div class="menu-box">
-      <h1 id="menu-title"><small>Приключения</small><span>Полины</span></h1>
-      <button class="btn primary" data-action="new-game">Новая игра</button>
-      <button class="btn secondary" data-action="levels">Выбор уровня</button>
+      <h1 id="menu-title"><img src="img/ui/title.webp" alt="Приключения Полины"></h1>
+      <button class="img-btn" data-action="new-game"><img src="img/ui/btn-new.webp" alt="Новая игра"></button>
+      <button class="img-btn" data-action="levels"><img src="img/ui/btn-levels.webp" alt="Выбор уровня"></button>
       <div class="menu-row">
-        <button class="btn small" data-action="wardrobe">Гардероб</button>
-        <button class="btn small" data-action="shop">Магазин</button>
+        <button class="img-btn" data-action="wardrobe"><img src="img/ui/btn-wardrobe.webp" alt="Гардероб"></button>
+        <button class="img-btn" data-action="shop"><img src="img/ui/btn-shop.webp" alt="Магазин"></button>
       </div>
       <p class="menu-coins"><i class="coin-icon"></i> <b id="menu-coins">0</b></p>
     </div>
@@ -137,6 +138,15 @@
       <button class="btn link" data-action="menu">Главное меню</button>
     </div>
   </section>
+
+  <!-- Заставка главы -->
+  <div id="splash" class="hidden" aria-label="Заставка главы">
+    <div class="splash-scene">
+      <img class="splash-bg" alt="">
+      <div class="splash-plaque"><img alt=""></div>
+    </div>
+    <div class="splash-leaves"></div>
+  </div>
 
   <div id="toast" class="hidden"></div>
 

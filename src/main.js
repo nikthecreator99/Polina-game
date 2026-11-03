@@ -67,6 +67,13 @@ const wornId = () => (OUTFITS[save.outfit] ? save.outfit : DEFAULT_OUTFIT);
 const frontImg = (id) => `img/polina/front-${OUTFITS[id] ? id : DEFAULT_OUTFIT}.webp`;
 let wardrobeSel = DEFAULT_OUTFIT;
 
+// Главная: в сарафане Полина 3 секунды стоит, потом 3 секунды танцует, и так по кругу.
+let dancing = false;
+setInterval(() => {
+  dancing = !dancing && mode === 'menu' && wornId() === 'sundress';
+  $('screen-menu').classList.toggle('dancing', dancing);
+}, 3000);
+
 function openWardrobe() {
   wardrobeSel = wornId();
   renderWardrobe();
@@ -155,7 +162,57 @@ function buy(id) {
   toast(`Обновка: ${o.name.toLowerCase()}! Полина сразу переоделась`);
 }
 
+// Заставка главы: картинка-сцена, вывеска «вбивается» и блестит, летят листочки.
+// Показываем перед первым уровнем главы; тап — пропустить.
+let splashDone = null;
+function showSplash(sp, then) {
+  const el = $('splash');
+  el.querySelector('.splash-bg').src = sp.img;
+  const pl = el.querySelector('.splash-plaque');
+  pl.querySelector('img').src = sp.plaque;
+  pl.style.left = `${sp.box[0] * 100}%`;
+  pl.style.top = `${sp.box[1] * 100}%`;
+  pl.style.width = `${sp.box[2] * 100}%`;
+  pl.style.setProperty('--mask', `url("${sp.plaque}")`);
+  el.style.setProperty('--ratio', sp.ratio);
+  const leaves = el.querySelector('.splash-leaves');
+  leaves.innerHTML = '';
+  for (let k = 0; k < 14; k++) {
+    const f = document.createElement('i');
+    f.style.left = `${Math.random() * 100}%`;
+    f.style.animationDelay = `${(Math.random() * 3.2).toFixed(2)}s`;
+    f.style.animationDuration = `${(3 + Math.random() * 2).toFixed(2)}s`;
+    f.style.setProperty('--sx', `${Math.round(Math.random() * 160 - 80)}px`);
+    f.style.setProperty('--s', (0.6 + Math.random() * 0.7).toFixed(2));
+    leaves.appendChild(f);
+  }
+  mode = 'splash';
+  show('splash');
+  el.classList.remove('hidden', 'out');
+  void el.offsetWidth;
+  el.classList.add('run');
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(t1);
+    el.classList.add('out');
+    then();
+    setTimeout(() => el.classList.add('hidden'), 700);
+    el.classList.remove('run');
+  };
+  const t1 = setTimeout(finish, 4300);
+  splashDone = finish;
+}
+$('splash').addEventListener('click', () => splashDone?.());
+
 function openIntro(i) {
+  const L0 = LEVELS[i];
+  const firstOfChapter = i === 0 || LEVELS[i - 1].chapter !== L0.chapter;
+  if (L0.splash && firstOfChapter && mode !== 'splash') {
+    showSplash(L0.splash, () => openIntro(i));
+    return;
+  }
   levelIndex = i;
   const L = LEVELS[i];
   $('intro-eyebrow').textContent = L.chapter;
@@ -258,7 +315,6 @@ function frame(now) {
 }
 
 // ---------- старт ----------
-$('menu-title').innerHTML = `<small>${CONFIG.titleTop}</small><span>${CONFIG.titleName}</span>`;
 document.title = `${CONFIG.titleTop} ${CONFIG.titleName}`;
 initInput();
 resize();
