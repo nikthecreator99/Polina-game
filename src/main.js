@@ -58,16 +58,13 @@ function goMenu() {
   game = null;
   mode = 'menu';
   $('menu-coins').textContent = save.coins;
+  $('menu-girl').src = frontImg(save.outfit);
   show('menu');
 }
 
 // ---------- гардероб и ярмарка ----------
 const wornId = () => (OUTFITS[save.outfit] ? save.outfit : DEFAULT_OUTFIT);
 const frontImg = (id) => `img/polina/front-${OUTFITS[id] ? id : DEFAULT_OUTFIT}.webp`;
-// Настоящие фото Полины (вырезанные из фона) для гардероба и ярмарки; где фото нет, показываем нарисованную.
-const REAL_PHOTOS = ['yolochka', 'blue', 'pajamas'];
-const outfitImg = (id) => (REAL_PHOTOS.includes(id) ? `img/photos/cut-${id}.webp` : frontImg(id));
-const outfitClass = (id) => (REAL_PHOTOS.includes(id) ? (id === 'blue' ? 'real bust' : 'real') : '');
 let wardrobeSel = DEFAULT_OUTFIT;
 
 function openWardrobe() {
@@ -80,8 +77,7 @@ function openWardrobe() {
 function renderWardrobe() {
   const o = OUTFITS[wardrobeSel];
   const owned = save.owned.includes(wardrobeSel);
-  $('wardrobe-big').src = outfitImg(wardrobeSel);
-  $('wardrobe-big').className = outfitClass(wardrobeSel);
+  $('wardrobe-big').src = frontImg(wardrobeSel);
   $('wardrobe-name').textContent = o.name;
   $('wardrobe-note').textContent = owned ? o.note : `${o.note}. Можно купить на ярмарке за ${o.price} монеток.`;
   const wear = $('wardrobe-wear');
@@ -98,7 +94,7 @@ function renderWardrobe() {
     b.classList.toggle('worn', id === wornId());
     b.classList.toggle('locked', !save.owned.includes(id));
     b.setAttribute('aria-label', OUTFITS[id].name);
-    b.innerHTML = `<img src="${outfitImg(id)}" class="${outfitClass(id)}" alt="">`;
+    b.innerHTML = `<img src="${frontImg(id)}" alt="">`;
     b.addEventListener('click', () => { wardrobeSel = id; renderWardrobe(); });
     list.appendChild(b);
   }
@@ -132,7 +128,7 @@ function renderShop() {
     b.style.setProperty('--blanket', BLANKETS[i % BLANKETS.length]);
     b.style.setProperty('--tilt', `${[-4, 3, -2, 4][i % 4]}deg`);
     const price = owned ? (id === wornId() ? 'надето' : 'уже твоё') : `${o.price} монеток`;
-    b.innerHTML = `<span class="blanket"></span><img src="${outfitImg(id)}" class="${outfitClass(id)}" alt=""><span class="tag">${o.name}<small>${price}</small></span>`;
+    b.innerHTML = `<span class="blanket"></span><img src="${frontImg(id)}" alt=""><span class="tag">${o.name}<small>${price}</small></span>`;
     b.addEventListener('click', () => buy(id));
     box.appendChild(b);
   });
