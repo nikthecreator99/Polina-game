@@ -537,7 +537,11 @@ function prepareGoose(img) {
         }
         for (let x = 0; x < w; x++) for (let y = top; y < top + 6; y++) if (m[y * w + x]) { sx += x; n++; }
         cg.putImageData(id2, 0, 0);
-        return { img: cv, mask: m, hipX: n ? sx / n : w / 2, hipY: top + 3 };
+        // подошва: самая нижняя строка лапы и середина по x в ней
+        let low = 0, fx = 0, fn = 0;
+        for (let p = 0; p < w * h; p++) if (m[p]) low = Math.max(low, Math.floor(p / w));
+        for (let y = low - 3; y <= low; y++) for (let x = 0; x < w; x++) if (m[y * w + x]) { fx += x; fn++; }
+        return { img: cv, mask: m, hipX: n ? sx / n : w / 2, hipY: top + 3, footX: fn ? fx / fn : w / 2, footY: low };
       });
       const body = document.createElement('canvas');
       body.width = w; body.height = h;
@@ -571,20 +575,34 @@ export function drawEnemy(ctx, e, t) {
     // гусь смотрит вправо; центр тела чуть левее середины картинки
     const ox = -w * (e.angry ? 0.3 : 0.45);
     if (G) {
-      const swing = e.alive ? 0.45 : 0;
-      G.legs.forEach((L, k) => {
-        const a = (k === 0 ? step : -step) * swing;
-        // лапа, которая идёт вперёд, чуть приподнимается
-        const lift = Math.max(0, k === 0 ? -Math.cos(ph) : Math.cos(ph)) * 3;
-        const hx = ox + L.hipX * s, hy = -h + L.hipY * s;
-        ctx.save();
-        ctx.translate(hx, hy - lift);
-        ctx.rotate(a);
-        ctx.drawImage(L.img, ox - hx, -h - hy, w, h);
-        ctx.restore();
+      // Шаг: лапы ходят в противофазе. Опорная лапа стоит на земле (тело подстраивается
+      // по высоте), а переносимая вперёд — приподнимается.
+      const swing = e.alive ? 0.32 : 0;
+      const groundY = Math.max(...G.legs.map((L) => L.footY));
+      // На картинке одна лапа стоит, а другая уже согнута в шаге. Берём стоящую лапу
+      // для обеих (вторую — у своего бедра), так шаги правой и левой одинаковые.
+      const plant = G.legs.reduce((p, q) => (q.footY > p.footY ? q : p));
+      const pose = G.legs.map((L, k) => {
+        const a = (k === 0 ? Math.sin(ph) : -Math.sin(ph)) * swing;
+        const moving = k === 0 ? -Math.cos(ph) : Math.cos(ph); // >0 — лапа идёт вперёд
+        const lift = Math.max(0, moving) * 0.07 * h;
+        const P = plant;
+        const fy = L.hipY + (P.footX - P.hipX) * Math.sin(a) + (P.footY - P.hipY) * Math.cos(a);
+        return { hipX: L.hipX, hipY: L.hipY, a, lift, fy, back: k === 0 };
       });
-      ctx.translate(0, -Math.abs(Math.cos(ph)) * 2);
-      ctx.rotate(step * 0.05);
+      // ни одна лапа не должна уходить под землю: опираемся на самую низкую
+      const support = Math.max(...pose.map((q) => q.fy - q.lift / s));
+      ctx.translate(0, (plant.footY - support) * s);
+      for (const q of pose) {
+        const hx = ox + q.hipX * s, hy = -h + q.hipY * s;
+        ctx.save();
+        ctx.translate(hx, hy - q.lift);
+        ctx.rotate(q.a);
+        // рисуем стоящую лапу так, чтобы её бедро совпало с бедром этой лапы
+        ctx.drawImage(q.back ? darkened(plant.img) : plant.img, ox - (ox + plant.hipX * s), -h - (-h + plant.hipY * s), w, h);
+        ctx.restore();
+      }
+      ctx.rotate(Math.sin(ph) * 0.04); // гусь переваливается с боку на бок
       ctx.drawImage(G.body, ox, -h, w, h);
     } else {
       ctx.translate(0, -Math.abs(step) * 2);
@@ -867,7 +885,8 @@ function prepareArm(img, a) {
     const ex = Math.round(px + (tip - px) * (a.elbow || 0.42));
     let sum = 0, n = 0;
     for (let y = 0; y < h; y++) if (d[(y * w + ex) * 4 + 3] > 128) { sum += y; n++; }
-    res = { elbowX: ex, elbowY: n ? sum / n : a.pivotY * h };
+    const wx = Math.round(px + (tip - px) * 0.8); // запястье
+    res = { elbowX: ex, elbowY: n ? sum / n : a.pivotY * h, wristX: wx, tipX: tip + 2 };
   } catch (e) { /* без пикселей рука рисуется прямой */ }
   armCache.set(img, res);
   return res;
@@ -957,7 +976,7 @@ function drawPolinaSprite(ctx, img, rig, P, o, arm) {
     elbowFront = lerp(-1.3, 0, Math.min(1, e * 1.4)); // в замахе согнута, к броску выпрямляется
   }
   const AG = arm && prepareArm(arm.img, arm.rig);
-  const drawArm = (angle, elbow, src) => {
+  const drawArm = (angle, elbow, src, fist) => {
     if (!arm) return;
     const a = arm.rig;
     const pw = a.pivotX * src.width, ph = a.pivotY * src.height;
@@ -976,7 +995,16 @@ function drawPolinaSprite(ctx, img, rig, P, o, arm) {
       ctx.translate((ex - pw) * s, (ey - ph) * s);
       ctx.rotate(elbow);
       ctx.translate(-(ex - pw) * s, -(ey - ph) * s);
-      ctx.drawImage(src, ex - ov, 0, src.width - ex + ov, src.height, (ex - ov - pw) * s, -ph * s, (src.width - ex + ov) * s, src.height * s);
+      if (!fist) {
+        ctx.drawImage(src, ex - ov, 0, src.width - ex + ov, src.height, (ex - ov - pw) * s, -ph * s, (src.width - ex + ov) * s, src.height * s);
+      } else {
+        // кулачок: предплечье до запястья, а кисть сжата вдоль руки (пальцы поджаты)
+        const wx = AG.wristX, tx = AG.tipX;
+        ctx.drawImage(src, ex - ov, 0, wx - ex + 2 * ov, src.height, (ex - ov - pw) * s, -ph * s, (wx - ex + 2 * ov) * s, src.height * s);
+        const k = 0.42;
+        const hw = tx - wx + ov;
+        ctx.drawImage(src, wx - ov, 0, hw, src.height, (wx - ov - pw) * s, -ph * s * 1.12, hw * k * s, src.height * s * 1.12);
+      }
     }
     ctx.restore();
   };
@@ -1014,7 +1042,8 @@ function drawPolinaSprite(ctx, img, rig, P, o, arm) {
     ctx.restore();
   };
 
-  if (arm) drawArm(armBack, elbowBack, darkened(arm.img));
+  const fist = !throwing || throwT < 0.45; // кулачки всегда, кроме момента броска
+  if (arm) drawArm(armBack, elbowBack, darkened(arm.img), true);
   leg(P.back, bh, bk, true);
   leg(P.front, fh, fk, false);
   ctx.save();
@@ -1022,7 +1051,7 @@ function drawPolinaSprite(ctx, img, rig, P, o, arm) {
   ctx.rotate(lean);
   ctx.drawImage(P.top, ox - pivX, oy - hipY, W, H);
   ctx.restore();
-  if (arm) drawArm(armFront, elbowFront, arm.img);
+  if (arm) drawArm(armFront, elbowFront, arm.img, fist);
   ctx.restore();
 }
 
