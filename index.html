@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Полина">
+  <meta name="theme-color" content="#1d3557">
+  <title>Приключения Полины</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD во время игры -->
+  <div id="hud" class="hidden">
+    <div class="hud-left">
+      <span id="hud-lives"></span>
+      <span class="hud-coins"><i class="coin-icon"></i><b id="hud-coins">0</b></span>
+    </div>
+    <div id="hud-title"></div>
+    <button id="btn-pause" class="hud-btn" aria-label="Пауза">❚❚</button>
+  </div>
+
+  <!-- Тач-управление -->
+  <div id="controls" class="hidden">
+    <div id="pad" aria-label="Влево / вправо">
+      <div class="pad-arrow left">◀</div>
+      <div class="pad-arrow right">▶</div>
+    </div>
+    <div id="actions">
+      <button id="btn-throw" class="act-btn" aria-label="Бросить камень"><i class="stone-icon"></i></button>
+      <button id="btn-jump" class="act-btn big" aria-label="Прыжок">⤒</button>
+    </div>
+  </div>
+
+  <!-- Экраны -->
+  <section id="screen-menu" class="screen">
+    <div class="menu-hero" id="menu-hero"></div>
+    <div class="menu-box">
+      <h1 id="menu-title"><small>Приключения</small><span>Полины</span></h1>
+      <button class="btn primary" data-action="new-game">Новая игра</button>
+      <button class="btn secondary" data-action="levels">Выбор уровня</button>
+      <div class="menu-row">
+        <button class="btn small" data-action="wardrobe">Гардероб</button>
+        <button class="btn small" data-action="shop">Магазин</button>
+      </div>
+      <p class="menu-coins"><i class="coin-icon"></i> <b id="menu-coins">0</b></p>
+    </div>
+  </section>
+
+  <section id="screen-levels" class="screen hidden">
+    <div class="card wide">
+      <h2>Выбор уровня</h2>
+      <div id="level-list" class="level-list"></div>
+      <button class="btn link" data-action="menu">Назад</button>
+    </div>
+  </section>
+
+  <section id="screen-intro" class="screen hidden">
+    <div class="card">
+      <p class="eyebrow" id="intro-eyebrow"></p>
+      <h2 id="intro-title"></h2>
+      <p id="intro-text"></p>
+      <ul class="hints">
+        <li><b>◀ ▶</b> слева: бежать</li>
+        <li><b>⤒</b> справа: прыжок (держи дольше, чтобы прыгнуть выше)</li>
+        <li><b><i class="stone-icon small"></i></b> справа: бросить камень, он ломает ящики и прогоняет гусей</li>
+      </ul>
+      <button class="btn primary" data-action="start-level">Поехали!</button>
+      <button class="btn link" data-action="menu">Главное меню</button>
+    </div>
+  </section>
+
+  <section id="screen-pause" class="screen dim hidden">
+    <div class="card">
+      <h2>Пауза</h2>
+      <button class="btn primary" data-action="resume">Продолжить</button>
+      <button class="btn secondary" data-action="restart">Начать уровень заново</button>
+      <button class="btn link" data-action="menu">Главное меню</button>
+    </div>
+  </section>
+
+  <section id="screen-complete" class="screen dim hidden">
+    <div class="card">
+      <p class="eyebrow">Уровень пройден</p>
+      <h2 id="complete-title">Ура!</h2>
+      <p id="complete-text"></p>
+      <button class="btn primary" data-action="next-level">Дальше</button>
+      <button class="btn link" data-action="menu">Главное меню</button>
+    </div>
+  </section>
+
+  <section id="screen-gameover" class="screen dim hidden">
+    <div class="card">
+      <h2>Ой!</h2>
+      <p>Жизни закончились, но это не страшно. Попробуем ещё раз?</p>
+      <button class="btn primary" data-action="restart">Ещё раз</button>
+      <button class="btn link" data-action="menu">Главное меню</button>
+    </div>
+  </section>
+
+  <div id="toast" class="hidden"></div>
+
+  <div id="rotate">
+    <div>
+      <div class="rotate-icon">⟳</div>
+      <p>Поверни iPad горизонтально</p>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
