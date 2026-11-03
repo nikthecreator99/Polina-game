@@ -439,40 +439,153 @@ function train(ctx, x, y) {
 
 // ---------- сборка кадра ----------
 
-export function drawScenery(ctx, cx, dy, W, t) {
-  const sky = ctx.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, '#5fb6ec');
-  sky.addColorStop(0.55, '#b9e3f8');
-  sky.addColorStop(1, '#e8f7ff');
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, W, H + 400);
+// Картинка-слой, повторяется по горизонтали; каждый второй повтор зеркальный,
+// чтобы края стыковались без шва.
+function imageStrip(ctx, img, off, y, w, h, W) {
+  const start = Math.floor(off / w);
+  for (let i = start; (i * w) - off < W; i++) {
+    const x = i * w - off;
+    if (i % 2 === 0) ctx.drawImage(img, x, y, w + 0.5, h);
+    else {
+      ctx.save();
+      ctx.translate(x + w, y);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, 0, 0, w + 0.5, h);
+      ctx.restore();
+    }
+  }
+}
 
-  // солнце с мягким ореолом
-  const sx = W * 0.8;
-  const sy = H * 0.15 - dy * 0.05;
-  const sg = ctx.createRadialGradient(sx, sy, 10, sx, sy, 160);
-  sg.addColorStop(0, 'rgba(255, 250, 220, 1)');
-  sg.addColorStop(0.25, 'rgba(255, 244, 200, .8)');
-  sg.addColorStop(1, 'rgba(255, 244, 200, 0)');
-  ctx.fillStyle = sg;
-  ctx.fillRect(sx - 160, sy - 160, 320, 320);
+function trainPass(ctx, W, y, t) {
+  const period = 24;
+  const phase = (t % period) / period;
+  const len = 4 * 190;
+  const span = W + len + 600;
+  const tx = W + 300 - phase * span;
+  if (tx < W && tx + len > 0) train(ctx, tx, y);
+}
 
-  const cs = cloud();
-  for (let i = 0; i < 6; i++) {
-    const span = W + 500;
-    let x = (i * 330 + 120 - cx * 0.05 - t * 5) % span;
-    if (x < 0) x += span;
-    x -= 250;
-    const y = H * (0.05 + hash(i) * 0.22) - dy * 0.05;
-    const s = 0.7 + hash(i + 9) * 0.6;
-    ctx.drawImage(cs, x, y, 200 * s, 110 * s);
+// Трава под картинкой деревни (видна на главной и в магазине): мягкий градиент,
+// травинки и цветочки. Рисуется один раз и повторяется.
+let grassCache = null;
+function grassTile() {
+  if (grassCache) return grassCache;
+  const w = 600, h = 260;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, '#6b7c12');
+  gr.addColorStop(0.35, '#5f7f1d');
+  gr.addColorStop(1, '#46681c');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, w, h);
+  // пятна светлее и темнее
+  for (let i = 0; i < 40; i++) {
+    const x = hash(i * 3.1) * w, y = hash(i * 7.7) * h, r = 30 + hash(i * 1.3) * 70;
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, i % 2 ? 'rgba(160, 200, 80, .22)' : 'rgba(40, 70, 20, .18)');
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg;
+    for (const dx of [-w, 0, w]) g.fillRect(x - r + dx, y - r, r * 2, r * 2);
+  }
+  // травинки
+  g.lineCap = 'round';
+  for (let i = 0; i < 900; i++) {
+    const x = hash(i * 1.71) * w;
+    const y = 6 + hash(i * 2.37) * (h - 6);
+    const len = 6 + hash(i * 5.1) * 10 * (0.6 + y / h);
+    const lean = (hash(i * 9.3) - 0.5) * 6;
+    g.strokeStyle = hash(i * 4.4) > 0.5 ? 'rgba(150, 195, 70, .55)' : 'rgba(45, 85, 25, .45)';
+    g.lineWidth = 1.2 + y / h;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.quadraticCurveTo(x + lean * 0.3, y - len * 0.6, x + lean, y - len);
+    g.stroke();
+  }
+  // цветочки: ромашки и клевер
+  for (let i = 0; i < 26; i++) {
+    const x = 20 + hash(i * 6.6) * (w - 40), y = 20 + hash(i * 8.2) * (h - 30);
+    const s = 1.6 + y / h * 1.8;
+    g.fillStyle = i % 3 === 0 ? '#e7a3d8' : '#fffdf5';
+    for (let k = 0; k < 5; k++) {
+      const a = k * Math.PI * 0.4;
+      g.beginPath();
+      g.arc(x + Math.cos(a) * s, y + Math.sin(a) * s, s * 0.8, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = '#f4c542';
+    g.beginPath();
+    g.arc(x, y, s * 0.6, 0, Math.PI * 2);
+    g.fill();
+  }
+  grassCache = c;
+  return c;
+}
+
+// Размеры слоёв из нейросети в виртуальных пикселях.
+const VILLAGE_H = 340;
+const VILLAGE_TOP = 130;
+const VILLAGE_RAIL = 0.768; // где рельсы на картинке деревни (доля высоты)
+
+export function drawScenery(ctx, cx, dy, W, t, IMG = {}) {
+  if (IMG.sky) {
+    const sh = 500;
+    const sw = sh * (IMG.sky.width / IMG.sky.height);
+    ctx.fillStyle = '#8fd0f7';
+    ctx.fillRect(0, 0, W, H + 400);
+    imageStrip(ctx, IMG.sky, cx * 0.04, -dy * 0.05 - 10, sw, sh, W);
+  } else {
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#5fb6ec');
+    sky.addColorStop(0.55, '#b9e3f8');
+    sky.addColorStop(1, '#e8f7ff');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H + 400);
+    const sx = W * 0.8;
+    const sy = H * 0.15 - dy * 0.05;
+    const sg = ctx.createRadialGradient(sx, sy, 10, sx, sy, 160);
+    sg.addColorStop(0, 'rgba(255, 250, 220, 1)');
+    sg.addColorStop(0.25, 'rgba(255, 244, 200, .8)');
+    sg.addColorStop(1, 'rgba(255, 244, 200, 0)');
+    ctx.fillStyle = sg;
+    ctx.fillRect(sx - 160, sy - 160, 320, 320);
+    const cs = cloud();
+    for (let i = 0; i < 6; i++) {
+      const span = W + 500;
+      let x = (i * 330 + 120 - cx * 0.05 - t * 5) % span;
+      if (x < 0) x += span;
+      x -= 250;
+      const y = H * (0.05 + hash(i) * 0.22) - dy * 0.05;
+      const s = 0.7 + hash(i + 9) * 0.6;
+      ctx.drawImage(cs, x, y, 200 * s, 110 * s);
+    }
   }
 
   blit(ctx, farLayer(), cx * 0.1, -dy * 0.12, W);
   blit(ctx, forestLayer(), cx * 0.22, -dy * 0.25, W);
-  blit(ctx, villageLayer(), cx * 0.4, -dy * 0.4, W);
-  railway(ctx, cx * 0.55, 418 - dy * 0.55, W, t);
-  blit(ctx, meadowLayer(), cx * 0.7, -dy * 0.7, W);
+
+  if (IMG.village) {
+    const vw = VILLAGE_H * (IMG.village.width / IMG.village.height);
+    const vy = VILLAGE_TOP - dy * 0.45;
+    const gy = vy + VILLAGE_H - 30;
+    ctx.fillStyle = '#4a7421';
+    ctx.fillRect(0, gy, W, H + 400);
+    imageStrip(ctx, grassTile(), cx * 0.6, gy, 600, 260, W);
+    imageStrip(ctx, IMG.village, cx * 0.45, vy, vw, VILLAGE_H, W);
+    // плавный переход от травы на картинке к траве-текстуре
+    const fy = vy + VILLAGE_H - 3;
+    const fade = ctx.createLinearGradient(0, fy, 0, fy + 40);
+    fade.addColorStop(0, 'rgba(104, 119, 11, 1)');
+    fade.addColorStop(1, 'rgba(104, 119, 11, 0)');
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, fy, W, 40);
+    trainPass(ctx, W, vy + VILLAGE_H * VILLAGE_RAIL - 2, t);
+  } else {
+    blit(ctx, villageLayer(), cx * 0.4, -dy * 0.4, W);
+    railway(ctx, cx * 0.55, 418 - dy * 0.55, W, t);
+    blit(ctx, meadowLayer(), cx * 0.7, -dy * 0.7, W);
+  }
 }
 
 // Мягкая виньетка и тёплый свет поверх всего мира (в экранных координатах).

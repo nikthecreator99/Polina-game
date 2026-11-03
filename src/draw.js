@@ -2,6 +2,7 @@
 // Персонажи и предметы рисуются мягкими формами с градиентами, чтобы был объём.
 import { TILE } from './levels.js';
 import { drawScenery, hash } from './scenery.js';
+import { IMG, RIG } from './assets.js';
 
 export { drawVignette, setRenderScale } from './scenery.js';
 
@@ -16,7 +17,7 @@ function rr(ctx, x, y, w, h, r) {
 }
 
 export function drawBackground(ctx, theme, cx, dy, W, H, t) {
-  drawScenery(ctx, cx, dy, W, t);
+  drawScenery(ctx, cx, dy, W, t, IMG);
 }
 
 // Мягкая тень под персонажем/предметом.
@@ -117,7 +118,10 @@ export function drawTiles(ctx, L, cx, cy, W, H, t) {
         x = e + 1;
         continue;
       }
-      if (c === 'B') crate(ctx, x * TILE, y * TILE, at(x, y + 1) !== 'B');
+      if (c === 'B') {
+        if (IMG.crate) ctx.drawImage(IMG.crate, x * TILE - 1, y * TILE - 1, TILE + 2, TILE + 2);
+        else crate(ctx, x * TILE, y * TILE, at(x, y + 1) !== 'B');
+      }
       else if (c === '~') puddle(ctx, x * TILE, y * TILE, t);
       x++;
     }
@@ -262,6 +266,11 @@ function puddle(ctx, px, py, t) {
 
 export function drawCoin(ctx, x, y, t) {
   const k = Math.cos(t * 3);
+  if (IMG.coin) {
+    const w = Math.max(3, 28 * Math.abs(k));
+    ctx.drawImage(IMG.coin, x - w / 2, y - 14, w, 28);
+    return;
+  }
   const w = Math.max(1.5, 13 * Math.abs(k));
   const rim = ctx.createLinearGradient(x - w, y - 13, x + w, y + 13);
   rim.addColorStop(0, '#ffe08a');
@@ -290,6 +299,13 @@ export function drawStone(ctx, x, y, r, angle) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
+  if (IMG.stone) {
+    const w = r * 2.6;
+    const h = w * (IMG.stone.height / IMG.stone.width);
+    ctx.drawImage(IMG.stone, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    return;
+  }
   ctx.fillStyle = '#9a948c';
   ctx.strokeStyle = '#5f5a54';
   ctx.lineWidth = 2.5;
@@ -310,6 +326,13 @@ export function drawStone(ctx, x, y, r, angle) {
 
 export function drawSign(ctx, x, ground, active) {
   drawShadow(ctx, x, ground, 16, 0.25);
+  if (IMG.sign) {
+    const k = active ? 1.08 : 1;
+    const w = 72 * k;
+    const h = w * (IMG.sign.height / IMG.sign.width);
+    ctx.drawImage(IMG.sign, x - w * 0.4, ground - h + 2, w, h);
+    return;
+  }
   ctx.fillStyle = '#7a5230';
   rr(ctx, x - 3, ground - 54, 6, 54, 3);
   ctx.fill();
@@ -348,6 +371,14 @@ export function drawCheckpoint(ctx, x, ground, active) {
 
 // Финиш: станция «Зелёный».
 export function drawStation(ctx, x, ground, t) {
+  if (IMG.station) {
+    const h = 230;
+    const w = h * (IMG.station.width / IMG.station.height);
+    drawShadow(ctx, x + 60 + w / 2, ground, w * 0.55, 0.3);
+    ctx.drawImage(IMG.station, x + 60, ground - h + 6, w, h);
+    finishFlag(ctx, x, ground, t);
+    return;
+  }
   const bx = x + 90;
   drawShadow(ctx, bx + 110, ground - 14, 170, 0.3);
   // перрон
@@ -414,7 +445,10 @@ export function drawStation(ctx, x, ground, t) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.fillText('ЗЕЛЁНЫЙ', bx + 100, ground - 148);
-  // флажок финиша
+  finishFlag(ctx, x, ground, t);
+}
+
+function finishFlag(ctx, x, ground, t) {
   drawShadow(ctx, x, ground, 12, 0.25);
   ctx.fillStyle = '#6b7078';
   rr(ctx, x - 2.5, ground - 142, 5, 142, 2.5);
@@ -434,7 +468,23 @@ export function drawStation(ctx, x, ground, t) {
 // ---------------- Гусь ----------------
 
 export function drawEnemy(ctx, e, t) {
-  if (e.alive) drawShadow(ctx, e.x + e.w / 2, e.y + e.h, 22, 0.3);
+  if (e.alive) drawShadow(ctx, e.x + e.w / 2, e.y + e.h, 26, 0.3);
+  const img = e.angry ? IMG.gooseAngry : IMG.gooseWalk;
+  if (img) {
+    const h = e.angry ? 58 : 70;
+    const w = h * (img.width / img.height);
+    const step = Math.sin(t * 10 + e.x * 0.05);
+    ctx.save();
+    ctx.translate(e.x + e.w / 2, e.y + e.h);
+    if (!e.alive) ctx.rotate(Math.PI * (1 - Math.max(0, e.dead) / 0.6));
+    ctx.scale(e.dir > 0 ? 1 : -1, 1);
+    ctx.translate(0, -Math.abs(step) * 2);
+    ctx.rotate(step * 0.06);
+    // гусь смотрит вправо; центр тела чуть левее середины картинки
+    ctx.drawImage(img, -w * (e.angry ? 0.3 : 0.45), -h, w, h);
+    ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.translate(e.x + e.w / 2, e.y + e.h);
   if (!e.alive) ctx.rotate(Math.PI * (1 - Math.max(0, e.dead) / 0.6));
@@ -514,8 +564,69 @@ const SKIN_SHADE = '#e6b394';
 const HAIR = '#6a4129';
 const HAIR_LIGHT = '#9a6a45';
 
+const darkCache = new Map();
+function darkened(img) {
+  if (darkCache.has(img)) return darkCache.get(img);
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const g = c.getContext('2d');
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = 'rgba(40, 20, 10, .22)';
+  g.fillRect(0, 0, c.width, c.height);
+  darkCache.set(img, c);
+  return c;
+}
+
+// Полина из картинки сбоку: верх целиком, ноги отдельной полоской, которая
+// качается вокруг «тазобедренного шарнира». Задняя нога — та же полоска, чуть темнее.
+function drawPolinaSprite(ctx, img, rig, o) {
+  const { x, y, h, facing, running, airborne, anim, throwing } = o;
+  const H = h * 1.4;
+  const s = H / img.height;
+  const W = img.width * s;
+  const swing = running ? Math.sin(anim) : 0;
+  const bob = running ? Math.abs(Math.cos(anim)) * 2.2 : 0;
+  ctx.save();
+  ctx.translate(x, y - bob);
+  ctx.scale(facing, 1);
+  const ox = -rig.footX * W;
+  const oy = -H;
+  const pivX = ox + rig.pivotX * W;
+  const pivY = oy + rig.cut * H;
+  const srcCut = rig.cut * img.height;
+  const sy = srcCut - img.height * 0.03;
+  const sh = img.height - sy;
+  let front = 0;
+  let back = 0;
+  if (airborne) { front = rig.swing * 0.8; back = -rig.swing * 0.6; }
+  else if (running) { front = swing * rig.swing; back = -swing * rig.swing; }
+  const leg = (angle, src) => {
+    ctx.save();
+    ctx.translate(pivX, pivY);
+    ctx.rotate(angle);
+    ctx.drawImage(src, 0, sy, img.width, sh, ox - pivX, oy + sy * s - pivY, W, sh * s);
+    ctx.restore();
+  };
+  leg(back, darkened(img));
+  leg(front, img);
+  // верх с лёгким наклоном вперёд на бегу и при броске
+  const lean = (throwing ? 0.14 : 0) + (running ? 0.04 : 0) + (airborne ? -0.03 : 0);
+  ctx.translate(pivX, pivY);
+  ctx.rotate(lean);
+  ctx.drawImage(img, 0, 0, img.width, srcCut, ox - pivX, oy - pivY, W, srcCut * s);
+  ctx.restore();
+}
+
 export function drawHeroine(ctx, o) {
   const { x, y, h, facing, running, airborne, anim, throwing, outfit } = o;
+  const sprite = IMG['side-' + o.outfitId];
+  if (sprite && RIG[o.outfitId]) {
+    if (o.shadowY !== undefined) drawShadow(ctx, x, o.shadowY, 20 * (h / 64), airborne ? 0.15 : 0.32);
+    drawPolinaSprite(ctx, sprite, RIG[o.outfitId], o);
+    return;
+  }
   const u = h / 64;
   if (o.shadowY !== undefined) drawShadow(ctx, x, o.shadowY, 18 * u, airborne ? 0.15 : 0.3);
   ctx.save();

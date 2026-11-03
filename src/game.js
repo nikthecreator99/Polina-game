@@ -50,7 +50,7 @@ export class Game {
     let boxes = 0;
     for (const row of this.level.tiles) for (const t of row) if (t === 'B') boxes++;
     this.totalCoins = this.level.coins.length + boxes;
-    this.enemies = this.level.enemies.map((e) => ({ x: e.x, y: e.y, w: 40, h: 36, dir: -1, vy: 0, alive: true, dead: 0 }));
+    this.enemies = this.level.enemies.map((e) => ({ x: e.x - 6, y: e.y - 8, w: 48, h: 44, dir: -1, vy: 0, alive: true, dead: 0, angry: false }));
     this.finishGround = this.level.finish ? this.groundBelow(this.level.finish.x / TILE, this.level.finish.y / TILE) : 0;
     for (const cp of this.level.checkpoints) cp.ground = this.groundBelow(cp.x / TILE, cp.y / TILE);
     this.signs = (this.def.signs || []).map((sg) => ({
@@ -334,6 +334,9 @@ export class Game {
         if (!canStand(this.tile(Math.floor(fx / TILE), Math.floor((e.y + e.h + 2) / TILE)))) e.dir *= -1;
       }
       if (e.y > this.level.h * TILE + 100) e.alive = false;
+      // Шипит, когда Полина близко и гусь смотрит на неё.
+      const dx = p.x + p.w / 2 - (e.x + e.w / 2);
+      e.angry = Math.abs(dx) < 190 && Math.sign(dx) === e.dir && Math.abs(p.y - e.y) < 120;
 
       // Столкновение с героиней
       if (this.state !== 'play') continue;
@@ -478,7 +481,7 @@ export class Game {
         shadowY,
         x: p.x + p.w / 2, y: p.y + p.h, h: p.h, facing: p.facing,
         running: p.onGround && Math.abs(p.vx) > 20, airborne: !p.onGround,
-        anim: p.anim, throwing: p.throwAnim > 0, outfit: OUTFITS[save.outfit] || OUTFITS.starter,
+        anim: p.anim, throwing: p.throwAnim > 0, outfitId: OUTFITS[save.outfit] ? save.outfit : 'sundress', outfit: OUTFITS[save.outfit] || OUTFITS.sundress,
       });
     }
 

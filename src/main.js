@@ -1,6 +1,7 @@
 import { Game } from './game.js';
 import { LEVELS } from './levels.js';
-import { CONFIG } from './config.js';
+import { CONFIG, OUTFITS, DEFAULT_OUTFIT } from './config.js';
+import { loadAssets } from './assets.js';
 import { input, initInput } from './input.js';
 import { save, persist } from './save.js';
 import { drawBackground, drawVignette, setRenderScale } from './draw.js';
@@ -34,7 +35,7 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
 // ---------- экраны ----------
-const SCREENS = ['menu', 'levels', 'intro', 'pause', 'complete', 'gameover'];
+const SCREENS = ['menu', 'levels', 'wardrobe', 'shop', 'intro', 'pause', 'complete', 'gameover'];
 function show(name) {
   for (const s of SCREENS) $(`screen-${s}`).classList.toggle('hidden', s !== name);
   const playing = name === null || name === 'pause';
@@ -54,7 +55,101 @@ function goMenu() {
   game = null;
   mode = 'menu';
   $('menu-coins').textContent = save.coins;
+  $('menu-girl').src = frontImg(save.outfit);
   show('menu');
+}
+
+// ---------- гардероб и ярмарка ----------
+const wornId = () => (OUTFITS[save.outfit] ? save.outfit : DEFAULT_OUTFIT);
+const frontImg = (id) => `img/polina/front-${OUTFITS[id] ? id : DEFAULT_OUTFIT}.webp`;
+let wardrobeSel = DEFAULT_OUTFIT;
+
+function openWardrobe() {
+  wardrobeSel = wornId();
+  renderWardrobe();
+  mode = 'wardrobe';
+  show('wardrobe');
+}
+
+function renderWardrobe() {
+  const o = OUTFITS[wardrobeSel];
+  const owned = save.owned.includes(wardrobeSel);
+  $('wardrobe-big').src = frontImg(wardrobeSel);
+  $('wardrobe-name').textContent = o.name;
+  $('wardrobe-note').textContent = owned ? o.note : `${o.note}. Можно купить на ярмарке за ${o.price} монеток.`;
+  const wear = $('wardrobe-wear');
+  if (!owned) wear.textContent = 'На ярмарку';
+  else if (wardrobeSel === wornId()) wear.textContent = 'Уже надето';
+  else wear.textContent = 'Надеть';
+  wear.disabled = owned && wardrobeSel === wornId();
+  const list = $('wardrobe-list');
+  list.innerHTML = '';
+  for (const id of Object.keys(OUTFITS)) {
+    const b = document.createElement('button');
+    b.className = 'outfit';
+    b.classList.toggle('sel', id === wardrobeSel);
+    b.classList.toggle('worn', id === wornId());
+    b.classList.toggle('locked', !save.owned.includes(id));
+    b.setAttribute('aria-label', OUTFITS[id].name);
+    b.innerHTML = `<img src="${frontImg(id)}" alt="">`;
+    b.addEventListener('click', () => { wardrobeSel = id; renderWardrobe(); });
+    list.appendChild(b);
+  }
+}
+
+$('wardrobe-wear').addEventListener('click', () => {
+  if (!save.owned.includes(wardrobeSel)) { openShop(); return; }
+  save.outfit = wardrobeSel;
+  persist();
+  renderWardrobe();
+  toast(`Полина переоделась: ${OUTFITS[wardrobeSel].name.toLowerCase()}`);
+});
+
+const BLANKETS = ['#c94f4f', '#4f7cc9', '#d99a2b', '#7a5aa8', '#3f9a6b'];
+
+function openShop() {
+  renderShop();
+  mode = 'shop';
+  show('shop');
+}
+
+function renderShop() {
+  $('shop-coins').textContent = save.coins;
+  const box = $('shop-items');
+  box.innerHTML = '';
+  Object.entries(OUTFITS).forEach(([id, o], i) => {
+    const owned = save.owned.includes(id);
+    const b = document.createElement('button');
+    b.className = 'shop-item';
+    b.classList.toggle('owned', owned);
+    b.style.setProperty('--blanket', BLANKETS[i % BLANKETS.length]);
+    b.style.setProperty('--tilt', `${[-4, 3, -2, 4][i % 4]}deg`);
+    const price = owned ? (id === wornId() ? 'надето' : 'уже твоё') : `${o.price} монеток`;
+    b.innerHTML = `<span class="blanket"></span><img src="${frontImg(id)}" alt=""><span class="tag">${o.name}<small>${price}</small></span>`;
+    b.addEventListener('click', () => buy(id));
+    box.appendChild(b);
+  });
+}
+
+function buy(id) {
+  const o = OUTFITS[id];
+  if (save.owned.includes(id)) {
+    save.outfit = id;
+    persist();
+    renderShop();
+    toast(`Полина переоделась: ${o.name.toLowerCase()}`);
+    return;
+  }
+  if (save.coins < o.price) {
+    toast(`Не хватает ${o.price - save.coins} монеток. Собери их в уровнях!`);
+    return;
+  }
+  save.coins -= o.price;
+  save.owned.push(id);
+  save.outfit = id;
+  persist();
+  renderShop();
+  toast(`Обновка: ${o.name.toLowerCase()}! Полина сразу переоделась`);
 }
 
 function openIntro(i) {
@@ -111,8 +206,8 @@ function renderLevelList() {
 const actions = {
   'new-game': () => openIntro(0),
   levels: () => { renderLevelList(); mode = 'levels'; show('levels'); },
-  wardrobe: () => toast('Гардероб скоро появится'),
-  shop: () => toast('Магазин скоро появится'),
+  wardrobe: openWardrobe,
+  shop: openShop,
   menu: goMenu,
   'start-level': startLevel,
   resume: () => { input.reset(); mode = 'play'; show(null); },
@@ -166,6 +261,10 @@ initInput();
 resize();
 goMenu();
 requestAnimationFrame(frame);
+// Картинки грузятся несколько секунд; пока они не пришли, показываем заставку.
+// Если интернет пропал, через 12 секунд всё равно пускаем в игру (нарисуем запасным кодом).
+Promise.race([loadAssets(), new Promise((r) => setTimeout(r, 12000))])
+  .then(() => $('loading').classList.add('done'));
 
 // Для автотестов и отладки в консоли.
 window.__polina = { getGame: () => game, input };

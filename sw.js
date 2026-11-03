@@ -1,6 +1,6 @@
 // Офлайн-кэш: после первого открытия игра работает без интернета.
 // При каждом обновлении игры увеличивай VERSION, чтобы iPad подхватил новые файлы.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = `polina-${VERSION}`;
 const FILES = [
   './',
@@ -11,6 +11,25 @@ const FILES = [
   './src/game.js',
   './src/draw.js',
   './src/scenery.js',
+  './src/assets.js',
+  './img/bg/sky.jpg',
+  './img/bg/station.webp',
+  './img/bg/village.webp',
+  './img/obj/coin.png',
+  './img/obj/crate.png',
+  './img/obj/goose-angry.png',
+  './img/obj/goose-stand.png',
+  './img/obj/goose-walk.png',
+  './img/obj/sign.png',
+  './img/obj/stone.png',
+  './img/polina/front-blue.webp',
+  './img/polina/front-pajamas.webp',
+  './img/polina/front-sundress.webp',
+  './img/polina/front-yolochka.webp',
+  './img/polina/side-blue.png',
+  './img/polina/side-pajamas.png',
+  './img/polina/side-sundress.png',
+  './img/polina/side-yolochka.png',
   './img/polina-menu.jpg',
   './src/input.js',
   './src/levels.js',

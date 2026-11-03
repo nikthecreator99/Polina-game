@@ -5,19 +5,23 @@ export const CONFIG = {
   titleName: 'Полины',
   // Что она бросает (подпись и цвет снаряда).
   projectile: { name: 'камень', color: '#9a948c', outline: '#5f5a54' },
-  // Монетки.
   coinName: 'монетки',
   startLives: 5,
 };
 
-// Возрастные стадии: меняют рост и пропорции персонажа.
+// Возрастные стадии: меняют рост персонажа.
 export const AGES = {
   child: { label: 'Детство', scale: 0.85 },
   teen: { label: 'Подросток', scale: 0.92 },
   adult: { label: 'Взрослая', scale: 1 },
 };
 
-// Одежда (пока заглушки, гардероб и магазин будут позже).
+// Наряды. Картинки: img/polina/front-<id>.webp (спереди) и side-<id>.png (сбоку, для игры).
+// top/shoes — цвета для запасной нарисованной кодом Полины.
 export const OUTFITS = {
-  starter: { name: 'Летний сарафан', price: 0, top: '#f2c14e', bottom: '#f2c14e', shoes: '#c0392b' },
+  sundress: { name: 'Летний сарафан', price: 0, top: '#f2c14e', shoes: '#c0392b', note: 'В нём она бегала по Зелёному' },
+  pajamas: { name: 'Пижамка', price: 15, top: '#f4f1ea', shoes: '#ffffff', note: 'Жёлтые штанишки с игрушками' },
+  blue: { name: 'Голубое платье', price: 25, top: '#b9cdf0', shoes: '#c0392b', note: 'Атласное, на день рождения' },
+  yolochka: { name: 'Новогодняя ёлочка', price: 40, top: '#f7f2ea', shoes: '#f3eee6', note: 'Костюм с утренника' },
 };
+export const DEFAULT_OUTFIT = 'sundress';
