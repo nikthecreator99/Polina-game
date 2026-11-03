@@ -1,6 +1,6 @@
 // Офлайн-кэш: после первого открытия игра работает без интернета.
 // При каждом обновлении игры увеличивай VERSION, чтобы iPad подхватил новые файлы.
-const VERSION = 'v7';
+const VERSION = 'v8';
 const CACHE = `polina-${VERSION}`;
 const FILES = [
   './',
@@ -35,6 +35,12 @@ const FILES = [
   './img/polina/front-pajamas.webp',
   './img/polina/front-sundress.webp',
   './img/polina/front-yolochka.webp',
+  './img/photos/photo-blue.jpg',
+  './img/photos/photo-pajamas.jpg',
+  './img/photos/photo-yolochka.jpg',
+  './img/photos/cut-blue.webp',
+  './img/photos/cut-pajamas.webp',
+  './img/photos/cut-yolochka.webp',
   './src/input.js',
   './src/levels.js',
   './src/config.js',
