@@ -1,6 +1,6 @@
 // Офлайн-кэш: после первого открытия игра работает без интернета.
 // При каждом обновлении игры увеличивай VERSION, чтобы iPad подхватил новые файлы.
-const VERSION = 'v11';
+const VERSION = 'v12';
 const CACHE = `polina-${VERSION}`;
 const FILES = [
   './',
@@ -12,6 +12,7 @@ const FILES = [
   './src/draw.js',
   './src/scenery.js',
   './src/assets.js',
+  './src/version.js',
   './img/bg/sky.jpg',
   './img/bg/station.webp',
   './img/bg/village.webp',
@@ -62,15 +63,26 @@ self.addEventListener('activate', (e) => {
   );
 });
 // Сначала сеть (чтобы обновления приходили сразу), без сети — из кэша.
+// Файлы игры перепроверяем на сервере (no-cache), иначе браузер ещё минут 10 отдаёт старые.
+// version.json не кэшируем вовсе: по нему игра узнаёт, что вышло обновление.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  if (url.origin !== location.origin) return;
+  if (url.pathname.endsWith('/version.json')) {
+    e.respondWith(fetch(e.request.url, { cache: 'no-store' }));
+    return;
+  }
+  const net = e.request.mode === 'navigate' ? fetch(e.request) : fetch(e.request.url, { cache: 'no-cache' });
   e.respondWith(
-    fetch(e.request)
+    net
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+        }
         return res;
       })
-      .catch(() => caches.match(e.request).then((r) => r || caches.match('./index.html'))),
+      .catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match('./index.html'))),
   );
 });

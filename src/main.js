@@ -2,6 +2,7 @@ import { Game } from './game.js';
 import { LEVELS } from './levels.js';
 import { CONFIG, OUTFITS, DEFAULT_OUTFIT } from './config.js';
 import { loadAssets } from './assets.js';
+import { APP_VERSION } from './version.js';
 import { input, initInput } from './input.js';
 import { save, persist } from './save.js';
 import { drawBackground, drawVignette, setRenderScale } from './draw.js';
@@ -60,7 +61,53 @@ function goMenu() {
   $('menu-coins').textContent = save.coins;
   $('menu-girl').src = frontImg(save.outfit);
   show('menu');
+  checkUpdate();
 }
+
+// ---------- обновления ----------
+// Сверяем номер своей версии с version.json на сайте. Новее — показываем плашку со списком изменений.
+let updateInfo = null;
+let updateLater = 0;
+async function checkUpdate() {
+  if (location.protocol === 'file:') return;
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const info = await r.json();
+    if (Number(info.version) > APP_VERSION) updateInfo = info;
+  } catch { /* нет сети — проверим позже */ }
+  showUpdateIfReady();
+}
+function showUpdateIfReady() {
+  if (!updateInfo || mode !== 'menu' || Date.now() < updateLater) return;
+  const box = $('update');
+  if (!box.classList.contains('hidden')) return;
+  $('update-title').textContent = updateInfo.title || 'Вышло обновление!';
+  const ul = $('update-notes');
+  ul.innerHTML = '';
+  for (const n of updateInfo.notes || []) {
+    const li = document.createElement('li');
+    li.textContent = n;
+    ul.appendChild(li);
+  }
+  box.classList.remove('hidden');
+}
+$('update-later').addEventListener('click', () => {
+  $('update').classList.add('hidden');
+  updateLater = Date.now() + 10 * 60 * 1000; // напомним через 10 минут
+});
+$('update-go').addEventListener('click', async () => {
+  $('update-go').disabled = true;
+  $('update-go').textContent = 'Обновляем…';
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update();
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+  } catch { /* всё равно перезагрузим */ }
+  location.replace(`${location.pathname}?v=${updateInfo?.version || Date.now()}`);
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 
 // ---------- гардероб и ярмарка ----------
 const wornId = () => (OUTFITS[save.outfit] ? save.outfit : DEFAULT_OUTFIT);
