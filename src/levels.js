@@ -72,6 +72,22 @@ export const LEVELS = [
   },
 ];
 
+// Карты глав для выбора уровня. Координаты в пикселях картинки карты:
+// focus — что обязательно должно влезть в экран; stops — где плашка уровня (x0, y0, x1, y1); play — кнопка «Играть».
+export const MAPS = {
+  'Глава 1 · Зелёный': {
+    img: 'img/ui/levels-zeleny.jpg',
+    w: 1850,
+    h: 850,
+    focus: [130, 15, 1300, 712],
+    play: [800, 615, 1145, 712],
+    stops: {
+      'zeleny-1': [155, 392, 537, 585],
+      'zeleny-2': [765, 255, 1197, 460],
+    },
+  },
+};
+
 export const TILE = 48;
 
 export function parseLevel(def) {

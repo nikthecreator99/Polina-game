@@ -59,6 +59,64 @@ export function drawTiles(ctx, L, cx, cy, W, H, t) {
     }
   }
 
+  if (IMG.ground && IMG.groundEdge) {
+    drawGroundArt(ctx, L, x0, x1, y0, y1, at);
+  } else drawGroundCode(ctx, L, x0, x1, y0, y1, at);
+
+  // Доски-платформы и ящики.
+  drawProps(ctx, x0, x1, y0, y1, at, t);
+}
+
+// Земля из картинок: полоса с травой повторяется по длине, у оврагов — край обрыва.
+// Все размеры в игровых пикселях; картинки сделаны в 2 раза крупнее для чёткости.
+const GROUND = { scale: 0.5, walk: 3, sink: 7 };
+const EDGE = { scale: 0.5, walk: 3.1, cliff: 87.8 };
+function drawGroundArt(ctx, L, x0, x1, y0, y1, at) {
+  const G = IMG.ground;
+  const E = IMG.groundEdge;
+  const gw = G.width * GROUND.scale;
+  const gh = G.height * GROUND.scale;
+  const ew = E.width * EDGE.scale;
+  const eh = E.height * EDGE.scale;
+  const bottom = L.h * TILE + 40;
+  // Сверху вниз: нижние куски рисуются поверх краёв верхних.
+  for (let y = y0; y <= y1; y++) {
+    let x = x0;
+    while (x <= x1) {
+      if (!(isGround(at(x, y)) && !isGround(at(x, y - 1)))) { x++; continue; }
+      let s = x;
+      while (s - 1 >= 0 && isGround(at(s - 1, y)) && !isGround(at(s - 1, y - 1))) s--;
+      let e = x;
+      while (e + 1 < L.w && isGround(at(e + 1, y)) && !isGround(at(e + 1, y - 1))) e++;
+      x = e + 1;
+      const top = y * TILE - GROUND.sink - GROUND.walk;
+      const sx = s * TILE;
+      const ex = (e + 1) * TILE;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(sx, top - 2, ex - sx, bottom - top);
+      ctx.clip();
+      // Узор привязан к миру, чтобы при беге не «плыл».
+      for (let px = Math.floor(sx / gw) * gw; px < ex; px += gw) {
+        ctx.drawImage(G, px, top, gw + 0.5, gh);
+        if (gh < bottom - top) ctx.drawImage(G, 0, G.height * 0.6, G.width, G.height * 0.4, px, top + gh - 1, gw + 0.5, (bottom - top) - gh + 2);
+      }
+      ctx.restore();
+      const ey = y * TILE - GROUND.sink - EDGE.walk;
+      const eh2 = Math.max(eh, bottom - ey);
+      if (!isGround(at(e + 1, y))) ctx.drawImage(E, ex - EDGE.cliff, ey, ew, eh2);
+      if (!isGround(at(s - 1, y))) {
+        ctx.save();
+        ctx.translate(sx, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(E, -EDGE.cliff, ey, ew, eh2);
+        ctx.restore();
+      }
+    }
+  }
+}
+
+function drawGroundCode(ctx, L, x0, x1, y0, y1, at) {
   // Земля: сплошная масса с градиентом по глубине.
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
@@ -103,8 +161,9 @@ export function drawTiles(ctx, L, cx, cy, W, H, t) {
       } else x++;
     }
   }
+}
 
-  // Доски-платформы и ящики.
+function drawProps(ctx, x0, x1, y0, y1, at, t) {
   for (let y = y0; y <= y1; y++) {
     let x = x0;
     while (x <= x1) {
@@ -189,8 +248,31 @@ function grassCap(ctx, x0, x1, y, roundL, roundR) {
   }
 }
 
+const PLANK = { scale: 0.5, top: 5.7, h: 26 };
 function plank(ctx, x0, x1, y) {
   const w = x1 - x0;
+  const P = IMG.planks;
+  if (P) {
+    const pw = P.width * PLANK.scale;
+    const ph = P.height * PLANK.scale;
+    ctx.fillStyle = 'rgba(30, 30, 10, .18)';
+    rr(ctx, x0 + 4, y + 10, w, PLANK.h - 4, 8);
+    ctx.fill();
+    ctx.save();
+    rr(ctx, x0, y - PLANK.top, w, ph, 7);
+    ctx.clip();
+    for (let px = Math.floor(x0 / pw) * pw; px < x1; px += pw) ctx.drawImage(P, px, y - PLANK.top, pw + 0.5, ph);
+    // торцы досок чуть темнее
+    for (const [ex, dir] of [[x0, 1], [x1, -1]]) {
+      const g = ctx.createLinearGradient(ex, 0, ex + dir * 8, 0);
+      g.addColorStop(0, 'rgba(70, 40, 15, .45)');
+      g.addColorStop(1, 'rgba(70, 40, 15, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(Math.min(ex, ex + dir * 8), y, 8, PLANK.h);
+    }
+    ctx.restore();
+    return;
+  }
   // тень на фоне
   ctx.fillStyle = 'rgba(30, 30, 10, .18)';
   rr(ctx, x0 + 4, y + 8, w, 18, 9);

@@ -6,6 +6,8 @@ const DEFAULTS = {
   owned: ['sundress'],
   unlocked: 1, // сколько уровней открыто
   best: {}, // levelId -> лучший результат по монеткам
+  stars: {}, // levelId -> лучшее число звёзд (1–3)
+  seenVersion: 0, // какую версию игры игрок уже видел (для «Что нового»)
 };
 
 function load() {
