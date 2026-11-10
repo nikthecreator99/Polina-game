@@ -544,7 +544,8 @@ canvas#game {
   background-size: 250% 100%;
   background-position: 130% 0;
 }
-#splash.run .splash-plaque { animation: plaque-stamp .9s .35s cubic-bezier(.3, 1.5, .5, 1) both, plaque-breathe 2.4s 1.4s ease-in-out infinite; }
+/* Вывеска на картинке уже есть; копия поверх всегда непрозрачная и не меньше оригинала, чтобы не было «двойной» вывески. */
+#splash.run .splash-plaque { animation: plaque-stamp 1s .2s cubic-bezier(.2, .8, .3, 1) both; }
 #splash.run .splash-plaque::after { animation: plaque-shine 1.1s 1.3s ease-in-out both; }
 .splash-leaves i {
   position: absolute; top: -40px;
@@ -559,12 +560,7 @@ canvas#game {
 @keyframes splash-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes splash-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes splash-zoom { from { transform: translate(-50%, -50%) scale(1.14); } to { transform: translate(-50%, -50%) scale(1); } }
-@keyframes plaque-stamp {
-  0% { transform: scale(1.6); opacity: 0; filter: blur(4px); }
-  60% { opacity: 1; filter: blur(0); }
-  100% { transform: scale(1); opacity: 1; }
-}
-@keyframes plaque-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@keyframes plaque-stamp { from { transform: scale(1.22); } to { transform: scale(1); } }
 @keyframes plaque-shine { from { background-position: 130% 0; } to { background-position: -30% 0; } }
 @keyframes leaf-fall {
   0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(var(--s, 1)); }

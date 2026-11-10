@@ -1,6 +1,6 @@
 // Офлайн-кэш: после первого открытия игра работает без интернета.
 // При каждом обновлении игры увеличивай VERSION, чтобы iPad подхватил новые файлы.
-const VERSION = 'v12';
+const VERSION = 'v13';
 const CACHE = `polina-${VERSION}`;
 const FILES = [
   './',

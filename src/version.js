@@ -3,4 +3,4 @@
 //   2) поставь тот же номер и список изменений в version.json (их и покажет плашка),
 //   3) увеличь VERSION в sw.js.
 // Игра на главной сверяет свой номер с version.json на сайте и, если там новее, предлагает обновиться.
-export const APP_VERSION = 12;
+export const APP_VERSION = 13;
