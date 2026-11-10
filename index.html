@@ -62,8 +62,9 @@
     <div id="map-scene" class="map-scene">
       <img id="map-bg" class="map-bg" alt="">
       <div id="map-stops"></div>
-      <button id="map-play" class="map-play" aria-label="Играть"></button>
+      <button id="map-play" class="btn secondary map-play">Играть ▶</button>
     </div>
+    <h2 id="map-title" class="map-title"></h2>
     <button class="btn map-back" data-action="menu">← Назад</button>
   </section>
 
@@ -103,7 +104,7 @@
       <p class="eyebrow" id="intro-eyebrow"></p>
       <h2 id="intro-title"></h2>
       <p id="intro-text"></p>
-      <ul class="hints">
+      <ul id="intro-hints" class="hints">
         <li><b>◀ ▶</b> слева: бежать</li>
         <li><b>⤒</b> справа: прыжок (держи дольше, чтобы прыгнуть выше)</li>
         <li><b><i class="stone-icon small"></i></b> справа: бросить камень, он ломает ящики и прогоняет гусей</li>
@@ -168,9 +169,10 @@
   <div id="loading"><div><div class="spinner"></div><p>Загружаем Зелёный…</p></div></div>
 
   <div id="rotate">
-    <div>
-      <div class="rotate-icon">⟳</div>
-      <p>Поверни iPad горизонтально</p>
+    <div class="rotate-card">
+      <div class="rotate-phone"><span></span></div>
+      <p class="rotate-title">Поверните экран горизонтально</p>
+      <p class="rotate-sub">Так Полине будет где разбежаться!</p>
     </div>
   </div>
 

@@ -281,14 +281,49 @@ canvas#game {
   display: none;
   align-items: center;
   justify-content: center;
+  padding: 24px;
   text-align: center;
-  background: #1d3557;
-  color: #fff;
-  font-size: 24px;
+  background:
+    linear-gradient(rgba(255, 248, 225, .25), rgba(30, 60, 20, .35)),
+    url('img/ui/chapter-1.jpg') center / cover no-repeat, #6fa84a;
   z-index: 100;
 }
-.rotate-icon { font-size: 80px; animation: spin 2.4s ease-in-out infinite; }
-@keyframes spin { 0%, 30% { transform: rotate(0); } 70%, 100% { transform: rotate(90deg); } }
+.rotate-card {
+  width: min(380px, 86vw);
+  padding: 30px 26px 24px;
+  border-radius: 26px;
+  border: 4px solid #d9a441;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, .7), transparent 60%),
+    linear-gradient(#fff9ea, #f3e3bf);
+  outline: 1.5px dashed rgba(150, 100, 40, .45);
+  outline-offset: -10px;
+  box-shadow: 0 0 0 2px #fff4d6 inset, 0 6px 0 #a8741f, 0 20px 40px rgba(0, 0, 0, .35);
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #5a2e12;
+}
+.rotate-phone {
+  position: relative;
+  width: 58px; height: 96px;
+  margin: 4px auto 22px;
+  border-radius: 12px;
+  border: 5px solid #3f7d2c;
+  background: linear-gradient(#bfe6ff, #e9f7d8);
+  box-shadow: 0 4px 0 #2b5a1e;
+  animation: rotate-phone 2.6s ease-in-out infinite;
+}
+.rotate-phone span {
+  position: absolute; left: 50%; bottom: 5px;
+  width: 10px; height: 10px; margin-left: -5px;
+  border-radius: 50%; background: #3f7d2c;
+}
+@keyframes rotate-phone {
+  0%, 25% { transform: rotate(0); }
+  60%, 85% { transform: rotate(-90deg); }
+  100% { transform: rotate(0); }
+}
+.rotate-title { margin: 0 0 6px; font-size: 24px; font-weight: bold; line-height: 1.25; }
+.rotate-sub { margin: 0; font-size: 16px; color: #7a5230; }
 @media (orientation: portrait) {
   #rotate { display: flex; }
 }
@@ -638,13 +673,27 @@ canvas#game {
 #screen-levels { padding: 0; overflow: hidden; background: #6fa64a; }
 .map-scene { position: absolute; --s: 1; }
 .map-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
-.map-back { position: absolute; z-index: 2; padding: 0; display: flex; align-items: center; justify-content: center; }
+.map-back { position: absolute; z-index: 3; top: calc(10px + var(--safe-t)); left: calc(12px + var(--safe-l)); padding: 8px 20px; font-size: 19px; }
+.map-title {
+  position: absolute; z-index: 2; top: calc(10px + var(--safe-t)); left: 50%;
+  transform: translateX(-50%);
+  margin: 0; padding: 10px 40px 12px;
+  white-space: nowrap;
+  font: 700 clamp(20px, 4.2vh, 36px)/1 Georgia, "Times New Roman", serif;
+  color: #fff4dc; text-shadow: 0 2px 0 rgba(20, 50, 15, .6);
+  border-radius: 999px;
+  border: 3px solid #d9a441;
+  background: radial-gradient(ellipse at 50% 20%, rgba(255, 255, 255, .18), transparent 60%), linear-gradient(#609c48, #3b6e2d);
+  outline: 1.5px dashed rgba(255, 235, 170, .6); outline-offset: -7px;
+  box-shadow: inset 0 0 0 2px rgba(25, 60, 20, .5), 0 4px 0 #a8741f, 0 8px 16px rgba(0, 0, 0, .3);
+}
 .map-play {
-  position: absolute; border: 0; padding: 0; background: transparent; border-radius: 999px;
+  position: absolute; padding: 0;
+  font-size: calc(46px * var(--s)); border-width: calc(5px * var(--s));
+  outline-offset: calc(-9px * var(--s));
   animation: play-glow 1.8s ease-in-out infinite;
 }
-.map-play:active { transform: scale(.96); }
-@keyframes play-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 230, 120, 0); } 50% { box-shadow: 0 0 calc(26px * var(--s)) calc(4px * var(--s)) rgba(255, 230, 120, .55); } }
+@keyframes play-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.12) drop-shadow(0 0 calc(14px * var(--s)) rgba(255, 230, 120, .8)); } }
 .map-stop {
   position: absolute; border: 0; padding: 0; background: none;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
@@ -710,6 +759,8 @@ canvas#game {
 .stars-why { font-size: 15px !important; color: #7a5a3a; }
 @media (max-height: 500px) {
   .stars.big .star { width: 40px; height: 40px; }
+  .map-back { font-size: 14px; padding: 5px 12px; top: calc(6px + var(--safe-t)); }
+  .map-title { top: calc(6px + var(--safe-t)); padding: 6px 24px 8px; }
 }
 
 .menu-refresh { position: absolute; right: calc(12px + var(--safe-r)); bottom: calc(10px + var(--safe-b)); font-size: 15px; padding: 7px 16px; opacity: .9; }

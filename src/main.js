@@ -296,6 +296,7 @@ function openIntro(i) {
   $('intro-eyebrow').textContent = L.chapter;
   $('intro-title').textContent = L.title;
   $('intro-text').textContent = L.text;
+  $('intro-hints').classList.toggle('hidden', i !== 0);
   mode = 'intro';
   show('intro');
 }
@@ -366,6 +367,7 @@ function renderMap() {
   const chapter = LEVELS[mapSel].chapter;
   const M = MAPS[chapter];
   $('map-bg').src = M.img;
+  $('map-title').textContent = chapter;
   const box = $('map-stops');
   box.innerHTML = '';
   LEVELS.forEach((L, i) => {
@@ -399,32 +401,22 @@ function renderMap() {
   pl.style.height = `${((p[3] - p[1]) / M.h) * 100}%`;
   layoutMap();
 }
-// Карта шире экрана: масштабируем так, чтобы влезла важная часть (focus), и при этом экран был закрыт целиком.
+// Карта закрывает экран целиком (лишнее по краям обрезается), в центре — станции и кнопка «Играть».
 function layoutMap() {
   const M = MAPS[LEVELS[mapSel].chapter];
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const f = M.focus;
-  const fit = Math.min(vw / (f[2] - f[0]), vh / (f[3] - f[1]));
-  const s = Math.max(fit, vw / M.w, vh / M.h);
+  const s = Math.max(vw / M.w, vh / M.h);
   const W = M.w * s;
   const H = M.h * s;
-  const cx = ((f[0] + f[2]) / 2) * s;
-  const cy = ((f[1] + f[3]) / 2) * s;
-  const left = Math.min(0, Math.max(vw - W, vw / 2 - cx));
-  const top = Math.min(0, Math.max(vh - H, vh / 2 - cy));
+  const boxes = [...Object.values(M.stops), M.play];
+  const fx = (Math.min(...boxes.map((r) => r[0])) + Math.max(...boxes.map((r) => r[2]))) / 2;
+  const fy = (Math.min(...boxes.map((r) => r[1])) + Math.max(...boxes.map((r) => r[3]))) / 2;
+  const left = Math.min(0, Math.max(vw - W, vw / 2 - fx * s));
+  const top = Math.min(0, Math.max(vh - H, vh / 2 - fy * s));
   const sc = $('map-scene');
   Object.assign(sc.style, { width: `${W}px`, height: `${H}px`, left: `${left}px`, top: `${top}px` });
   sc.style.setProperty('--s', s);
-  // «Назад» — на месте нарисованной кнопки, но не дальше края экрана.
-  const back = document.querySelector('.map-back');
-  Object.assign(back.style, {
-    left: `${Math.max(12, left + 32 * s)}px`,
-    top: `${Math.max(10, top + 22 * s)}px`,
-    width: `${230 * s}px`,
-    height: `${86 * s}px`,
-    fontSize: `${Math.max(14, 30 * s)}px`,
-  });
 }
 window.addEventListener('resize', () => { if (mode === 'levels') layoutMap(); });
 $('map-play').addEventListener('click', () => openIntro(mapSel));
